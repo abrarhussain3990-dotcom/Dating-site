@@ -1,34 +1,12 @@
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
-  import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-auth.js";
 
-  const firebaseConfig = {
-    apiKey: "AIzaSyCoFPC3w3bGCyeBVpnOTNe33AsdcIz2tQ8",
-    authDomain: "dating-app-158f4.firebaseapp.com",
-    projectId: "dating-app-158f4",
-    storageBucket: "dating-app-158f4.appspot.com",
-    messagingSenderId: "638828311733",
-    appId: "1:638828311733:web:5aec5f19be4d999c73bafc"
-  };
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Dating App</title>
+</head>
+<body>
 
-  const app = initializeApp(firebaseConfig);
-  const auth = getAuth(app);
+<h1>🔥 Website chal rahi hai!</h1>
 
-  window.signup = function() {
-    const email = document.getElementById("email").value;
-    const password = document.getElementById("password").value;
-
-    createUserWithEmailAndPassword(auth, email, password)
-      .then(() => alert("Signup Successful ✅"))
-      .catch(err => alert(err.message));
-  }
-
-  window.login = function() {
-    const email = document.getElementById("email").value;
-    const password = document.getElementById("password").value;
-
-    signInWithEmailAndPassword(auth, email, password)
-      .then(() => alert("Login Successful ✅"))
-      .catch(err => alert(err.message));
-  }
-</script>
+</body>
+</html>
