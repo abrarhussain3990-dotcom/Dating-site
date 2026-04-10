@@ -42,8 +42,7 @@
   <div id="chat"></div>
 
   <input type="text" id="msg" placeholder="Type message...">
-  <button onclick="sendMessage()">Send</button>
-
+  <button id="sendBtn">Send</button>
   <script>
     // ✅ Tumhara original Firebase config (already correct 🔥)
     const firebaseConfig = {
@@ -81,3 +80,6 @@
 
 </body>
 </html>
+document.getElementById("sendBtn").addEventListener("click", function() {
+  sendMessage();
+});
