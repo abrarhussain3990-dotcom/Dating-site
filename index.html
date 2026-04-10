@@ -1,70 +1,100 @@
+
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Simple Chat App</title>
+  <title>Dating App Pro MVP</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
   <style>
     body {
+      margin: 0;
       font-family: Arial;
-      background: #f2f2f2;
+      background: linear-gradient(135deg, #ff4e50, #f9d423);
       display: flex;
       flex-direction: column;
       align-items: center;
     }
 
-    #chatBox {
-      width: 90%;
-      max-width: 500px;
-      height: 400px;
+    h2 { color: white; }
+
+    #card {
+      width: 320px;
+      height: 420px;
       background: white;
-      overflow-y: auto;
-      padding: 10px;
-      border-radius: 10px;
-      margin-top: 20px;
-    }
-
-    .msg {
-      background: #e1f5fe;
-      padding: 8px;
-      margin: 5px;
-      border-radius: 5px;
-    }
-
-    #inputArea {
+      margin-top: 30px;
+      border-radius: 20px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.3);
       display: flex;
-      width: 90%;
-      max-width: 500px;
-      margin-top: 10px;
-    }
-
-    input {
-      flex: 1;
-      padding: 10px;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
     }
 
     button {
-      padding: 10px;
-      background: #2196f3;
-      color: white;
+      margin: 10px;
+      padding: 12px 20px;
       border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+
+    .like { background: #4caf50; color: white; }
+    .skip { background: #f44336; color: white; }
+
+    #chat {
+      display: none;
+      width: 95%;
+      max-width: 400px;
+      margin-top: 20px;
+    }
+
+    #msgs {
+      background: white;
+      height: 200px;
+      overflow-y: auto;
+      padding: 10px;
+      border-radius: 10px;
+    }
+
+    input {
+      width: 70%;
+      padding: 10px;
     }
   </style>
 </head>
+
 <body>
 
-<h2>🔥 Real Time Chat App</h2>
+<h2>🔥 Dating App Pro MVP</h2>
 
-<div id="chatBox"></div>
+<div id="card">
+  <h1 id="name">Loading...</h1>
 
-<div id="inputArea">
-  <input type="text" id="messageInput" placeholder="Type message..." />
-  <button onclick="sendMessage()">Send</button>
+  <button class="like" onclick="like()">❤️ Like</button>
+  <button class="skip" onclick="next()">❌ Skip</button>
+</div>
+
+<div id="chat">
+  <h3>💬 Private Chat</h3>
+  <div id="msgs"></div>
+  <input id="txt" placeholder="Message..." />
+  <button onclick="send()">Send</button>
 </div>
 
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getDatabase, ref, push, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-// 🔥 YOUR FIREBASE CONFIG
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+import {
+  getDatabase,
+  ref,
+  push,
+  set,
+  onValue,
+  get
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
 const firebaseConfig = {
   apiKey: "AIzaSyDVcQgFke5tSEU9BZk1YhZfSro7X_yIpg4",
   authDomain: "dating-app-d9a67.firebaseapp.com",
@@ -75,45 +105,125 @@ const firebaseConfig = {
   appId: "1:338502840906:web:2ab4d25b54f2c2e002acb3"
 };
 
-// init
 const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
 const db = getDatabase(app);
 
-// reference
-const messagesRef = ref(db, "messages");
+let me = null;
+let users = [];
+let i = 0;
+let chatId = null;
 
-// send message
-window.sendMessage = function () {
-  const input = document.getElementById("messageInput");
-  const text = input.value;
+// LOGIN + CREATE USER
+signInAnonymously(auth).then(u => {
+  me = u.user.uid;
 
-  if (text.trim() === "") return;
+  set(ref(db, "users/" + me), {
+    name: "User_" + me.substring(0, 5)
+  });
 
-  push(messagesRef, {
-    text: text,
-    time: Date.now()
+  loadUsers();
+});
+
+// LOAD USERS
+function loadUsers() {
+  onValue(ref(db, "users"), snap => {
+    users = [];
+
+    snap.forEach(u => {
+      if (u.key !== me) {
+        users.push({ id: u.key, ...u.val() });
+      }
+    });
+
+    if (users.length > 0) show();
+  });
+}
+
+// SHOW USER
+function show() {
+  document.getElementById("name").innerText =
+    users[i]?.name || "User";
+}
+
+// NEXT
+window.next = function () {
+  if (users.length === 0) return;
+  i = (i + 1) % users.length;
+  show();
+};
+
+// LIKE
+window.like = function () {
+  const target = users[i];
+
+  push(ref(db, "likes"), {
+    from: me,
+    to: target.id
+  });
+
+  checkMatch(target.id);
+  next();
+};
+
+// MATCH CHECK (FIXED)
+async function checkMatch(target) {
+  const snap = await get(ref(db, "likes"));
+
+  let matched = false;
+
+  snap.forEach(l => {
+    let d = l.val();
+
+    if (d.from === target && d.to === me) {
+      matched = true;
+    }
+  });
+
+  if (matched) {
+    alert("💘 MATCH!");
+
+    chatId = [me, target].sort().join("_");
+
+    document.getElementById("chat").style.display = "block";
+
+    loadChat();
+  }
+}
+
+// CHAT LOAD (FIXED)
+function loadChat() {
+  onValue(ref(db, "chats/" + chatId), snap => {
+    const box = document.getElementById("msgs");
+    box.innerHTML = "";
+
+    snap.forEach(m => {
+      const data = m.val();
+
+      let div = document.createElement("div");
+      div.innerText = (data.sender === me ? "You: " : "Them: ") + data.text;
+
+      box.appendChild(div);
+    });
+
+    box.scrollTop = box.scrollHeight;
+  });
+}
+
+// SEND MESSAGE
+window.send = function () {
+  let input = document.getElementById("txt");
+
+  if (!chatId || input.value.trim() === "") return;
+
+  push(ref(db, "chats/" + chatId), {
+    text: input.value,
+    sender: me
   });
 
   input.value = "";
 };
 
-// receive messages
-onValue(messagesRef, (snapshot) => {
-  const chatBox = document.getElementById("chatBox");
-  chatBox.innerHTML = "";
-
-  snapshot.forEach((child) => {
-    const msg = child.val();
-
-    const div = document.createElement("div");
-    div.classList.add("msg");
-    div.innerText = msg.text;
-
-    chatBox.appendChild(div);
-  });
-
-  chatBox.scrollTop = chatBox.scrollHeight;
-});
 </script>
 
 </body>
