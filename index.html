@@ -1,7 +1,8 @@
+
 <!DOCTYPE html>
 <html>
 <head>
-    <title>My Dating App</title>
+    <title>Dating App</title>
     <style>
         body {
             font-family: Arial;
@@ -13,53 +14,85 @@
             margin: 0;
         }
 
-        .box {
+        .card {
             background: white;
+            width: 300px;
             padding: 20px;
             border-radius: 15px;
-            width: 300px;
             text-align: center;
-            box-shadow: 0 0 10px rgba(0,0,0,0.2);
+            box-shadow: 0 0 10px rgba(0,0,0,0.3);
         }
 
-        input {
-            width: 90%;
-            padding: 10px;
-            margin: 8px 0;
-            border: 1px solid #ccc;
-            border-radius: 8px;
+        img {
+            width: 100%;
+            border-radius: 10px;
         }
 
         button {
-            width: 95%;
+            width: 45%;
             padding: 10px;
-            background: #ff4d6d;
-            color: white;
+            margin: 10px 5px;
             border: none;
             border-radius: 8px;
+            color: white;
             cursor: pointer;
         }
 
-        button:hover {
-            background: #e6004c;
+        .like {
+            background: green;
+        }
+
+        .skip {
+            background: gray;
         }
     </style>
 </head>
 <body>
 
-<div class="box">
-    <h2>❤️ Login</h2>
+<div class="card">
+    <h2>💘 Find Match</h2>
 
-    <input type="text" placeholder="Username">
-    <input type="password" placeholder="Password">
+    <img id="pic" src="https://i.pravatar.cc/300?img=1">
 
-    <button onclick="login()">Login</button>
+    <h3 id="name">Ayesha</h3>
+
+    <button class="like" onclick="like()">Like ❤️</button>
+    <button class="skip" onclick="skip()">Skip ❌</button>
 </div>
 
 <script>
-function login() {
-    alert("Login successful ❤️ Next step will be match screen!");
+let users = [
+    {name:"Ayesha", img:"https://i.pravatar.cc/300?img=1"},
+    {name:"Sara", img:"https://i.pravatar.cc/300?img=2"},
+    {name:"Zainab", img:"https://i.pravatar.cc/300?img=3"},
+    {name:"Hina", img:"https://i.pravatar.cc/300?img=4"}
+];
+
+let i = 0;
+
+function showUser() {
+    document.getElementById("name").innerText = users[i].name;
+    document.getElementById("pic").src = users[i].img;
 }
+
+function like() {
+    alert("💖 You liked " + users[i].name);
+    next();
+}
+
+function skip() {
+    next();
+}
+
+function next() {
+    i++;
+    if(i >= users.length) {
+        i = 0;
+    }
+    showUser();
+}
+
+showUser();
 </script>
 
 </body>
