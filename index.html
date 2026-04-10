@@ -1,61 +1,87 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Dating App</title>
-    <style>
-        body {
-            font-family: Arial;
-            background: #ff4d6d;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
-        }
+<title>Dating App</title>
 
-        .card {
-            background: white;
-            width: 300px;
-            padding: 20px;
-            border-radius: 15px;
-            text-align: center;
-            box-shadow: 0 0 10px rgba(0,0,0,0.3);
-        }
+<style>
+body {
+    font-family: Arial;
+    background: #ff4d6d;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+}
 
-        img {
-            width: 100%;
-            border-radius: 10px;
-        }
+/* CARD */
+.card {
+    background: white;
+    width: 300px;
+    padding: 20px;
+    border-radius: 15px;
+    text-align: center;
+}
 
-        button {
-            width: 45%;
-            padding: 10px;
-            margin: 10px 5px;
-            border: none;
-            border-radius: 8px;
-            color: white;
-            cursor: pointer;
-        }
+/* CHAT SCREEN */
+.chatScreen {
+    display: none;
+    background: white;
+    width: 300px;
+    height: 400px;
+    border-radius: 15px;
+    display: flex;
+    flex-direction: column;
+}
 
-        .like { background: green; }
-        .skip { background: gray; }
-        .chat { background: blue; width: 95%; }
+.messages {
+    flex: 1;
+    padding: 10px;
+    overflow-y: auto;
+}
 
-        #matchBox {
-            display: none;
-            margin-top: 10px;
-            background: pink;
-            padding: 10px;
-            border-radius: 10px;
-        }
-    </style>
+.msg {
+    background: #eee;
+    padding: 8px;
+    margin: 5px;
+    border-radius: 8px;
+}
+
+.inputBox {
+    display: flex;
+}
+
+input {
+    flex: 1;
+    padding: 10px;
+}
+
+button {
+    padding: 10px;
+    border: none;
+    background: #ff4d6d;
+    color: white;
+}
+
+.like {background: green;}
+.skip {background: gray;}
+.chatBtn {background: blue; width:100%;}
+
+#matchBox {
+    display: none;
+    background: pink;
+    padding: 10px;
+    border-radius: 10px;
+}
+</style>
+
 </head>
 <body>
 
-<div class="card">
-    <h2>💘 Find Match</h2>
-
-    <img id="pic">
+<!-- MATCH SCREEN -->
+<div class="card" id="matchScreen">
+    <h3>💘 Find Match</h3>
+    <img id="pic" width="100%">
     <h3 id="name"></h3>
 
     <button class="like" onclick="like()">Like ❤️</button>
@@ -63,16 +89,24 @@
 
     <div id="matchBox">
         <h3>💖 It's a Match!</h3>
-        <button class="chat" onclick="chat()">Start Chat 💬</button>
+        <button class="chatBtn" onclick="openChat()">Start Chat 💬</button>
+    </div>
+</div>
+
+<!-- CHAT SCREEN -->
+<div class="chatScreen" id="chatScreen">
+    <div class="messages" id="messages"></div>
+
+    <div class="inputBox">
+        <input type="text" id="msgInput" placeholder="Type message...">
+        <button onclick="sendMsg()">Send</button>
     </div>
 </div>
 
 <script>
 let users = [
     {name:"Ayesha", img:"https://i.pravatar.cc/300?img=1"},
-    {name:"Sara", img:"https://i.pravatar.cc/300?img=2"},
-    {name:"Zainab", img:"https://i.pravatar.cc/300?img=3"},
-    {name:"Hina", img:"https://i.pravatar.cc/300?img=4"}
+    {name:"Sara", img:"https://i.pravatar.cc/300?img=2"}
 ];
 
 let i = 0;
@@ -84,27 +118,40 @@ function showUser() {
 }
 
 function like() {
-    let matchChance = Math.random();
-
-    if(matchChance > 0.5) {
+    if(Math.random() > 0.5){
         document.getElementById("matchBox").style.display = "block";
     } else {
         next();
     }
 }
 
-function skip() {
-    next();
-}
+function skip() { next(); }
 
 function next() {
-    i++;
-    if(i >= users.length) i = 0;
+    i = (i+1) % users.length;
     showUser();
 }
 
-function chat() {
-    alert("💬 Chat feature next step me ayega!");
+/* OPEN CHAT */
+function openChat() {
+    document.getElementById("matchScreen").style.display = "none";
+    document.getElementById("chatScreen").style.display = "flex";
+}
+
+/* SEND MESSAGE */
+function sendMsg() {
+    let input = document.getElementById("msgInput");
+    let msg = input.value;
+
+    if(msg === "") return;
+
+    let div = document.createElement("div");
+    div.className = "msg";
+    div.innerText = msg;
+
+    document.getElementById("messages").appendChild(div);
+
+    input.value = "";
 }
 
 showUser();
