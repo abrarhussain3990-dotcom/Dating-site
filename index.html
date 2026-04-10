@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html>
 <head>
@@ -38,12 +37,16 @@
             cursor: pointer;
         }
 
-        .like {
-            background: green;
-        }
+        .like { background: green; }
+        .skip { background: gray; }
+        .chat { background: blue; width: 95%; }
 
-        .skip {
-            background: gray;
+        #matchBox {
+            display: none;
+            margin-top: 10px;
+            background: pink;
+            padding: 10px;
+            border-radius: 10px;
         }
     </style>
 </head>
@@ -52,12 +55,16 @@
 <div class="card">
     <h2>💘 Find Match</h2>
 
-    <img id="pic" src="https://i.pravatar.cc/300?img=1">
-
-    <h3 id="name">Ayesha</h3>
+    <img id="pic">
+    <h3 id="name"></h3>
 
     <button class="like" onclick="like()">Like ❤️</button>
     <button class="skip" onclick="skip()">Skip ❌</button>
+
+    <div id="matchBox">
+        <h3>💖 It's a Match!</h3>
+        <button class="chat" onclick="chat()">Start Chat 💬</button>
+    </div>
 </div>
 
 <script>
@@ -73,11 +80,17 @@ let i = 0;
 function showUser() {
     document.getElementById("name").innerText = users[i].name;
     document.getElementById("pic").src = users[i].img;
+    document.getElementById("matchBox").style.display = "none";
 }
 
 function like() {
-    alert("💖 You liked " + users[i].name);
-    next();
+    let matchChance = Math.random();
+
+    if(matchChance > 0.5) {
+        document.getElementById("matchBox").style.display = "block";
+    } else {
+        next();
+    }
 }
 
 function skip() {
@@ -86,10 +99,12 @@ function skip() {
 
 function next() {
     i++;
-    if(i >= users.length) {
-        i = 0;
-    }
+    if(i >= users.length) i = 0;
     showUser();
+}
+
+function chat() {
+    alert("💬 Chat feature next step me ayega!");
 }
 
 showUser();
