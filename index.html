@@ -1,85 +1,120 @@
-
 <!DOCTYPE html>
 <html>
 <head>
-  <title>My Real Chat App</title>
-
+  <title>Simple Chat App</title>
   <style>
     body {
       font-family: Arial;
       background: #f2f2f2;
-      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
     }
 
-    #chat {
-      height: 300px;
-      overflow-y: scroll;
-      border: 1px solid #ccc;
-      margin: 20px;
-      padding: 10px;
+    #chatBox {
+      width: 90%;
+      max-width: 500px;
+      height: 400px;
       background: white;
+      overflow-y: auto;
+      padding: 10px;
+      border-radius: 10px;
+      margin-top: 20px;
+    }
+
+    .msg {
+      background: #e1f5fe;
+      padding: 8px;
+      margin: 5px;
+      border-radius: 5px;
+    }
+
+    #inputArea {
+      display: flex;
+      width: 90%;
+      max-width: 500px;
+      margin-top: 10px;
     }
 
     input {
+      flex: 1;
       padding: 10px;
-      width: 60%;
     }
 
     button {
       padding: 10px;
+      background: #2196f3;
+      color: white;
+      border: none;
     }
   </style>
-
-  <!-- Firebase scripts -->
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js"></script>
 </head>
-
 <body>
 
-  <h2>🔥 My Real Chat App</h2>
+<h2>🔥 Real Time Chat App</h2>
 
-  <div id="chat"></div>
+<div id="chatBox"></div>
 
-  <input type="text" id="msg" placeholder="Type message...">
-  <button id="sendBtn">Send</button>
-  <script>
-    // ✅ Tumhara original Firebase config (already correct 🔥)
-    const firebaseConfig = {
-      apiKey: "AIzaSyDVcQgFke5tSEU9BZk1YhZfSro7X_yIpg4",
-      authDomain: "dating-app-d9a67.firebaseapp.com",
-      databaseURL: "https://dating-app-d9a67-default-rtdb.firebaseio.com",
-      projectId: "dating-app-d9a67",
-      storageBucket: "dating-app-d9a67.firebasestorage.app",
-      messagingSenderId: "338502840906",
-      appId: "1:338502840906:web:63585ed184d8291402acb3"
-    };
+<div id="inputArea">
+  <input type="text" id="messageInput" placeholder="Type message..." />
+  <button onclick="sendMessage()">Send</button>
+</div>
 
-    // Initialize Firebase
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getDatabase, ref, push, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-    function sendMessage() {
-      let msg = document.getElementById("msg").value;
-      let user = localStorage.getItem("user") || "User";
+// 🔥 YOUR FIREBASE CONFIG
+const firebaseConfig = {
+  apiKey: "AIzaSyDVcQgFke5tSEU9BZk1YhZfSro7X_yIpg4",
+  authDomain: "dating-app-d9a67.firebaseapp.com",
+  databaseURL: "https://dating-app-d9a67-default-rtdb.firebaseio.com",
+  projectId: "dating-app-d9a67",
+  storageBucket: "dating-app-d9a67.firebasestorage.app",
+  messagingSenderId: "338502840906",
+  appId: "1:338502840906:web:2ab4d25b54f2c2e002acb3"
+};
 
-      db.ref("messages").push({
-        name: user,
-        text: msg
-      });
+// init
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
 
-      document.getElementById("msg").value = "";
-    }
+// reference
+const messagesRef = ref(db, "messages");
 
-    db.ref("messages").on("child_added", function(data) {
-      let msg = data.val();
-      document.getElementById("chat").innerHTML += 
-        "<p><b>" + msg.name + ":</b> " + msg.text + "</p>";
-    });
-  </script>
+// send message
+window.sendMessage = function () {
+  const input = document.getElementById("messageInput");
+  const text = input.value;
+
+  if (text.trim() === "") return;
+
+  push(messagesRef, {
+    text: text,
+    time: Date.now()
+  });
+
+  input.value = "";
+};
+
+// receive messages
+onValue(messagesRef, (snapshot) => {
+  const chatBox = document.getElementById("chatBox");
+  chatBox.innerHTML = "";
+
+  snapshot.forEach((child) => {
+    const msg = child.val();
+
+    const div = document.createElement("div");
+    div.classList.add("msg");
+    div.innerText = msg.text;
+
+    chatBox.appendChild(div);
+  });
+
+  chatBox.scrollTop = chatBox.scrollHeight;
+});
+</script>
 
 </body>
 </html>
-document.getElementById("sendBtn").addEventListener("click", function() {
-  sendMessage();
-});
