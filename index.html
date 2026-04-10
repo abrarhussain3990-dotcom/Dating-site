@@ -1,161 +1,24 @@
-<!DOCTYPE html>
-<html>
-<head>
-<title>Dating App</title>
 
-<style>
-body {
-    font-family: Arial;
-    background: #ff4d6d;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
-    margin: 0;
-}
-
-/* CARD */
-.card {
-    background: white;
-    width: 300px;
-    padding: 20px;
-    border-radius: 15px;
-    text-align: center;
-}
-
-/* CHAT SCREEN */
-.chatScreen {
-    display: none;
-    background: white;
-    width: 300px;
-    height: 400px;
-    border-radius: 15px;
-    display: flex;
-    flex-direction: column;
-}
-
-.messages {
-    flex: 1;
-    padding: 10px;
-    overflow-y: auto;
-}
-
-.msg {
-    background: #eee;
-    padding: 8px;
-    margin: 5px;
-    border-radius: 8px;
-}
-
-.inputBox {
-    display: flex;
-}
-
-input {
-    flex: 1;
-    padding: 10px;
-}
-
-button {
-    padding: 10px;
-    border: none;
-    background: #ff4d6d;
-    color: white;
-}
-
-.like {background: green;}
-.skip {background: gray;}
-.chatBtn {background: blue; width:100%;}
-
-#matchBox {
-    display: none;
-    background: pink;
-    padding: 10px;
-    border-radius: 10px;
-}
-</style>
-
-</head>
-<body>
-
-<!-- MATCH SCREEN -->
-<div class="card" id="matchScreen">
-    <h3>💘 Find Match</h3>
-    <img id="pic" width="100%">
-    <h3 id="name"></h3>
-
-    <button class="like" onclick="like()">Like ❤️</button>
-    <button class="skip" onclick="skip()">Skip ❌</button>
-
-    <div id="matchBox">
-        <h3>💖 It's a Match!</h3>
-        <button class="chatBtn" onclick="openChat()">Start Chat 💬</button>
-    </div>
-</div>
-
-<!-- CHAT SCREEN -->
-<div class="chatScreen" id="chatScreen">
-    <div class="messages" id="messages"></div>
-
-    <div class="inputBox">
-        <input type="text" id="msgInput" placeholder="Type message...">
-        <button onclick="sendMsg()">Send</button>
-    </div>
-</div>
-
-<script>
-let users = [
-    {name:"Ayesha", img:"https://i.pravatar.cc/300?img=1"},
-    {name:"Sara", img:"https://i.pravatar.cc/300?img=2"}
-];
-
-let i = 0;
-
-function showUser() {
-    document.getElementById("name").innerText = users[i].name;
-    document.getElementById("pic").src = users[i].img;
-    document.getElementById("matchBox").style.display = "none";
-}
-
-function like() {
-    if(Math.random() > 0.5){
-        document.getElementById("matchBox").style.display = "block";
-    } else {
-        next();
-    }
-}
-
-function skip() { next(); }
-
-function next() {
-    i = (i+1) % users.length;
-    showUser();
-}
-
-/* OPEN CHAT */
-function openChat() {
-    document.getElementById("matchScreen").style.display = "none";
-    document.getElementById("chatScreen").style.display = "flex";
-}
-
-/* SEND MESSAGE */
 function sendMsg() {
     let input = document.getElementById("msgInput");
     let msg = input.value;
 
     if(msg === "") return;
 
+    // USER MESSAGE
     let div = document.createElement("div");
     div.className = "msg";
     div.innerText = msg;
-
     document.getElementById("messages").appendChild(div);
 
     input.value = "";
+
+    // AUTO REPLY (bot)
+    setTimeout(() => {
+        let reply = document.createElement("div");
+        reply.className = "msg";
+        reply.style.background = "#d1ffd1";
+        reply.innerText = "Hi 😄 nice to meet you!";
+        document.getElementById("messages").appendChild(reply);
+    }, 1000);
 }
-
-showUser();
-</script>
-
-</body>
-</html>
