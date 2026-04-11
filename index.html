@@ -2,226 +2,180 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Dating App Pro MVP</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HeartLink 🔥</title>
 
   <style>
-    body {
-      margin: 0;
-      font-family: Arial;
-      background: linear-gradient(135deg, #ff4e50, #f9d423);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
-
-    h2 { color: white; }
+    body { font-family: Arial; text-align:center; }
 
     #card {
-      width: 320px;
-      height: 420px;
-      background: white;
-      margin-top: 30px;
-      border-radius: 20px;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.3);
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
+      width: 250px;
+      height: 300px;
+      border: 2px solid #ccc;
+      margin: 20px auto;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:20px;
+      border-radius:10px;
+      position:relative;
+      touch-action:none;
     }
 
-    button {
-      margin: 10px;
-      padding: 12px 20px;
-      border: none;
-      border-radius: 10px;
-      cursor: pointer;
-      font-size: 16px;
+    #chatBox {
+      display:none;
+      border-top:2px solid #ccc;
+      padding:10px;
     }
 
-    .like { background: #4caf50; color: white; }
-    .skip { background: #f44336; color: white; }
-
-    #chat {
-      display: none;
-      width: 95%;
-      max-width: 400px;
-      margin-top: 20px;
+    #messages {
+      height:200px;
+      overflow:auto;
+      border:1px solid #ccc;
+      margin-bottom:10px;
+      text-align:left;
+      padding:5px;
     }
 
-    #msgs {
-      background: white;
-      height: 200px;
-      overflow-y: auto;
-      padding: 10px;
-      border-radius: 10px;
-    }
-
-    input {
-      width: 70%;
-      padding: 10px;
-    }
+    .me { text-align:right; color:blue; }
   </style>
 </head>
 
 <body>
 
-<h2>🔥 Dating App Pro MVP</h2>
+<h2>HeartLink ❤️</h2>
 
-<div id="card">
-  <h1 id="name">Loading...</h1>
+<input id="username" placeholder="Your name">
+<button onclick="start()">Start</button>
 
-  <button class="like" onclick="like()">❤️ Like</button>
-  <button class="skip" onclick="next()">❌ Skip</button>
-</div>
+<div id="card">Swipe users 👇</div>
 
-<div id="chat">
-  <h3>💬 Private Chat</h3>
-  <div id="msgs"></div>
-  <input id="txt" placeholder="Message..." />
-  <button onclick="send()">Send</button>
+<div id="chatBox">
+  <h3 id="chatWith"></h3>
+  <div id="messages"></div>
+  <input id="msg" placeholder="Type message">
+  <button onclick="sendMsg()">Send</button>
 </div>
 
 <script type="module">
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-import {
-  getDatabase,
-  ref,
-  push,
-  set,
-  onValue,
-  get
-} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+import { getDatabase, ref, push, set, get, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyDVcQgFke5tSEU9BZk1YhZfSro7X_yIpg4",
-  authDomain: "dating-app-d9a67.firebaseapp.com",
-  databaseURL: "https://dating-app-d9a67-default-rtdb.firebaseio.com",
-  projectId: "dating-app-d9a67",
-  storageBucket: "dating-app-d9a67.firebasestorage.app",
-  messagingSenderId: "338502840906",
-  appId: "1:338502840906:web:2ab4d25b54f2c2e002acb3"
+  apiKey: "YOUR_KEY",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  databaseURL: "https://YOUR_PROJECT-default-rtdb.firebaseio.com",
+  projectId: "YOUR_PROJECT"
 };
 
 const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
 const db = getDatabase(app);
 
-let me = null;
-let users = [];
-let i = 0;
-let chatId = null;
+let currentUser = "";
+let users = ["user1","user2","user3"];
+let currentProfile = "";
 
-// LOGIN + CREATE USER
-signInAnonymously(auth).then(u => {
-  me = u.user.uid;
+// START
+window.start = function(){
+  currentUser = document.getElementById("username").value.trim();
 
-  set(ref(db, "users/" + me), {
-    name: "User_" + me.substring(0, 5)
-  });
+  if(!currentUser){
+    alert("Enter your name!");
+    return;
+  }
 
-  loadUsers();
-});
-
-// LOAD USERS
-function loadUsers() {
-  onValue(ref(db, "users"), snap => {
-    users = [];
-
-    snap.forEach(u => {
-      if (u.key !== me) {
-        users.push({ id: u.key, ...u.val() });
-      }
-    });
-
-    if (users.length > 0) show();
-  });
-}
+  nextUser();
+};
 
 // SHOW USER
-function show() {
-  document.getElementById("name").innerText =
-    users[i]?.name || "User";
+function nextUser(){
+  currentProfile = users[Math.floor(Math.random()*users.length)];
+
+  if(currentProfile === currentUser){
+    return nextUser();
+  }
+
+  document.getElementById("card").innerText = currentProfile;
 }
 
-// NEXT
-window.next = function () {
-  if (users.length === 0) return;
-  i = (i + 1) % users.length;
-  show();
-};
+// SWIPE
+let card = document.getElementById("card");
+let startX = 0;
+
+card.addEventListener("touchstart", e=>{
+  startX = e.touches[0].clientX;
+});
+
+card.addEventListener("touchend", async e=>{
+  let endX = e.changedTouches[0].clientX;
+
+  if(endX - startX > 50){
+    like();
+  } else if(startX - endX > 50){
+    nextUser();
+  }
+});
 
 // LIKE
-window.like = function () {
-  const target = users[i];
+async function like(){
+  if(!currentUser || !currentProfile) return;
 
-  push(ref(db, "likes"), {
-    from: me,
-    to: target.id
-  });
+  await set(ref(db, `swipes/${currentUser}/${currentProfile}`), true);
 
-  checkMatch(target.id);
-  next();
-};
+  let snap = await get(ref(db, `swipes/${currentProfile}/${currentUser}`));
 
-// MATCH CHECK (FIXED)
-async function checkMatch(target) {
-  const snap = await get(ref(db, "likes"));
-
-  let matched = false;
-
-  snap.forEach(l => {
-    let d = l.val();
-
-    if (d.from === target && d.to === me) {
-      matched = true;
-    }
-  });
-
-  if (matched) {
-    alert("💘 MATCH!");
-
-    chatId = [me, target].sort().join("_");
-
-    document.getElementById("chat").style.display = "block";
-
-    loadChat();
+  if(snap.exists()){
+    alert("🔥 MATCH!");
+    openChat();
+  } else {
+    nextUser();
   }
 }
 
-// CHAT LOAD (FIXED)
-function loadChat() {
-  onValue(ref(db, "chats/" + chatId), snap => {
-    const box = document.getElementById("msgs");
-    box.innerHTML = "";
-
-    snap.forEach(m => {
-      const data = m.val();
-
-      let div = document.createElement("div");
-      div.innerText = (data.sender === me ? "You: " : "Them: ") + data.text;
-
-      box.appendChild(div);
-    });
-
-    box.scrollTop = box.scrollHeight;
-  });
+// CHAT ID
+function chatId(a,b){
+  return a < b ? a + "_" + b : b + "_" + a;
 }
 
-// SEND MESSAGE
-window.send = function () {
-  let input = document.getElementById("txt");
+// OPEN CHAT
+function openChat(){
+  document.getElementById("chatBox").style.display="block";
+  document.getElementById("chatWith").innerText = "Chat with " + currentProfile;
 
-  if (!chatId || input.value.trim() === "") return;
+  let id = chatId(currentUser,currentProfile);
 
-  push(ref(db, "chats/" + chatId), {
-    text: input.value,
-    sender: me
+  onValue(ref(db,"chats/"+id),(snap)=>{
+    let data = snap.val();
+    let box = document.getElementById("messages");
+
+    box.innerHTML="";
+
+    if(!data) return;
+
+    Object.values(data).forEach(msg=>{
+      box.innerHTML += `<p class="${msg.sender===currentUser?'me':''}">${msg.text}</p>`;
+    });
   });
 
-  input.value = "";
+  // ONLINE STATUS
+  set(ref(db, "online/"+currentUser), true);
+}
+
+// SEND
+window.sendMsg = function(){
+  let text = document.getElementById("msg").value;
+
+  if(!text) return;
+
+  let id = chatId(currentUser,currentProfile);
+
+  push(ref(db,"chats/"+id),{
+    text: text,
+    sender: currentUser,
+    time: Date.now()
+  });
+
+  document.getElementById("msg").value="";
 };
 
 </script>
