@@ -2,209 +2,218 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="UTF-8">
-<title>Dating App Final</title>
+  <title>Dating App</title>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-storage.js"></script>
 
-<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
-
-<style>
-body{
-  margin:0;
-  font-family:Arial;
-  background:#111;
-  color:#fff;
-  text-align:center;
-}
-
-#card{
-  width:300px;
-  height:400px;
-  background:#222;
-  margin:40px auto;
-  border-radius:20px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  font-size:24px;
-  white-space:pre-line;
-}
-
-button{
-  padding:10px;
-  margin:10px;
-  border:none;
-  border-radius:10px;
-}
-
-.like{background:green;}
-.pass{background:red;}
-
-#chat{display:none;}
-
-.msg{
-  padding:8px;
-  margin:5px;
-  border-radius:10px;
-  max-width:70%;
-}
-
-.me{background:#0f0; margin-left:auto;}
-.other{background:#333; margin-right:auto;}
-</style>
+  <style>
+    body { font-family: sans-serif; margin:0; background:#f2f2f2; }
+    .screen { display:none; padding:10px; }
+    .active { display:block; }
+    .card { background:#fff; padding:10px; margin:10px; border-radius:10px; }
+    img { border-radius:10px; }
+    button { padding:10px; margin:5px; border:none; background:#ff4d6d; color:white; border-radius:5px; }
+    input { padding:10px; margin:5px; width:90%; }
+    .nav { position:fixed; bottom:0; width:100%; display:flex; background:#fff; }
+    .nav button { flex:1; background:#eee; color:black; }
+  </style>
 </head>
 
 <body>
 
-<h2>🔥 Dating App Final</h2>
-
-<div id="app">
-  <div id="card">Loading...</div>
-  <button class="pass" onclick="pass()">❌</button>
-  <button class="like" onclick="like()">❤️</button>
+<!-- LOGIN -->
+<div id="login" class="screen active">
+  <h2>Login</h2>
+  <input id="name" placeholder="Enter name"><br>
+  <button onclick="login()">Enter</button>
 </div>
 
-<div id="chat">
-  <h3>💬 Chat</h3>
+<!-- HOME (Swipe Users) -->
+<div id="home" class="screen">
+  <h2>Discover</h2>
+  <div id="users"></div>
+</div>
+
+<!-- MATCHES -->
+<div id="matches" class="screen">
+  <h2>Matches</h2>
+  <div id="matchList"></div>
+</div>
+
+<!-- CHAT -->
+<div id="chat" class="screen">
+  <h2>Chat</h2>
   <div id="messages"></div>
   <input id="msg">
   <button onclick="sendMsg()">Send</button>
 </div>
 
+<!-- PROFILE -->
+<div id="profile" class="screen">
+  <h2>Profile</h2>
+  <input type="file" id="file">
+  <button onclick="upload()">Upload Photo</button>
+  <div id="myProfile"></div>
+</div>
+
+<!-- NAV -->
+<div class="nav">
+  <button onclick="show('home')">Home</button>
+  <button onclick="show('matches')">Matches</button>
+  <button onclick="show('profile')">Profile</button>
+</div>
+
 <script>
-
-// 🔥 FIREBASE CONFIG
-var firebaseConfig = {
-  apiKey: "AIzaSyDVcQgFke5tSEU9BZk1YhZfSro7X_yIpg4",
-  authDomain: "dating-app-d9a67.firebaseapp.com",
-  databaseURL: "https://dating-app-d9a67-default-rtdb.firebaseio.com",
-  projectId: "dating-app-d9a67",
-  storageBucket: "dating-app-d9a67.firebasestorage.app",
-  messagingSenderId: "338502840906",
-  appId: "1:338502840906:web:b2b9c5b01ec7cf7c02acb3"
+const firebaseConfig = {
+  apiKey: "YOUR_KEY",
+  authDomain: "YOUR_DOMAIN",
+  databaseURL: "YOUR_DB",
+  projectId: "YOUR_ID",
+  storageBucket: "YOUR_BUCKET"
 };
-
 firebase.initializeApp(firebaseConfig);
-var db = firebase.database();
+let db = firebase.database();
+let storage = firebase.storage();
 
-// 👤 LOGIN
-var myId = localStorage.getItem("myId");
-if(!myId){
-  myId = prompt("Apna naam likho");
-  localStorage.setItem("myId", myId);
-}
+let currentUserId = "";
+let chatUser = "";
 
-// 👤 SAVE USER + ONLINE
-db.ref("users/"+myId).set({
-  name: myId,
-  online: true
-});
+// LOGIN
+function login() {
+  let name = document.getElementById("name").value;
+  currentUserId = "user_" + Date.now();
 
-// offline detect
-window.addEventListener("beforeunload", function(){
-  db.ref("users/"+myId+"/online").set(false);
-});
-
-// 👥 LOAD USERS
-var users = [];
-var index = 0;
-var currentUser = "";
-
-db.ref("users").on("value", function(snap){
-  var data = snap.val();
-
-  if(!data){
-    users = [];
-  } else {
-    users = Object.keys(data).filter(function(u){
-      return u !== myId;
-    });
-  }
-
-  index = 0;
-  showUser();
-});
-
-// 👀 SHOW USER + STATUS
-function showUser(){
-  if(users.length === 0){
-    document.getElementById("card").innerText = "No users";
-    return;
-  }
-
-  currentUser = users[index];
-
-  db.ref("users/"+currentUser).once("value", function(snap){
-    var u = snap.val();
-    var status = "⚫ Offline";
-
-    if(u && u.online){
-      status = "🟢 Online";
-    }
-
-    document.getElementById("card").innerText =
-      currentUser + "\n" + status;
+  db.ref("users/" + currentUserId).set({
+    name: name,
+    photo: ""
   });
+
+  loadUsers();
+  show("home");
 }
 
-// ⏭ NEXT
-function next(){
-  index++;
-  if(index >= users.length) index=0;
-  showUser();
+// SWITCH SCREEN
+function show(id){
+  document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
+  document.getElementById(id).classList.add("active");
 }
 
-// ❤️ LIKE + MATCH
-function like(){
-  db.ref("likes/"+myId+"/"+currentUser).set(true);
+// LOAD USERS
+function loadUsers(){
+  db.ref("users").on("value", snap=>{
+    let data = snap.val();
+    let html = "";
 
-  db.ref("likes/"+currentUser+"/"+myId).once("value", function(snap){
-    if(snap.exists()){
-      alert("🔥 MATCH!");
-      startChat(currentUser);
-    } else {
-      next();
-    }
-  });
-}
+    for(let uid in data){
+      if(uid !== currentUserId){
+        let u = data[uid];
 
-// ❌ PASS
-function pass(){
-  next();
-}
-
-// 💬 CHAT
-function startChat(user){
-  document.getElementById("app").style.display="none";
-  document.getElementById("chat").style.display="block";
-
-  db.ref("messages/"+myId+"_"+user).on("value", function(snap){
-    var data = snap.val() || {};
-    var html = "";
-
-    Object.values(data).forEach(function(m){
-      if(m.sender === myId){
-        html += "<div class='msg me'>"+m.text+"</div>";
-      } else {
-        html += "<div class='msg other'>"+m.text+"</div>";
+        html += `
+          <div class="card">
+            <img src="${u.photo || 'https://via.placeholder.com/100'}" width="100"><br>
+            ${u.name}<br>
+            <button onclick="likeUser('${uid}')">Like ❤️</button>
+          </div>
+        `;
       }
+    }
+    document.getElementById("users").innerHTML = html;
+  });
+}
+
+// LIKE + MATCH
+function likeUser(uid){
+  db.ref("likes/"+currentUserId+"/"+uid).set(true);
+
+  db.ref("likes/"+uid+"/"+currentUserId).once("value", snap=>{
+    if(snap.exists()){
+      // MATCH
+      db.ref("matches/"+currentUserId+"/"+uid).set(true);
+      db.ref("matches/"+uid+"/"+currentUserId).set(true);
+
+      sendNotification(uid,"You got a match!");
+      alert("Matched!");
+    }
+  });
+}
+
+// LOAD MATCHES
+db.ref("matches").on("value", snap=>{
+  if(!currentUserId) return;
+  let data = snap.val()?.[currentUserId];
+  let html = "";
+
+  for(let uid in data){
+    db.ref("users/"+uid).once("value", s=>{
+      let u = s.val();
+
+      html += `
+        <div class="card" onclick="openChat('${uid}')">
+          <img src="${u.photo || 'https://via.placeholder.com/50'}" width="50">
+          ${u.name}
+        </div>
+      `;
+      document.getElementById("matchList").innerHTML = html;
     });
+  }
+});
+
+// OPEN CHAT
+function openChat(uid){
+  chatUser = uid;
+  show("chat");
+
+  db.ref("chats/"+getChatId()).on("value", snap=>{
+    let data = snap.val();
+    let html = "";
+
+    for(let id in data){
+      html += `<p>${data[id].sender}: ${data[id].text}</p>`;
+    }
 
     document.getElementById("messages").innerHTML = html;
   });
 }
 
-// 📩 SEND
+// SEND MSG
 function sendMsg(){
-  var msg = document.getElementById("msg").value;
-  if(!msg) return;
+  let text = document.getElementById("msg").value;
 
-  var data = {text: msg, sender: myId};
+  db.ref("chats/"+getChatId()).push({
+    sender: currentUserId,
+    text: text
+  });
 
-  db.ref("messages/"+myId+"_"+currentUser).push(data);
-  db.ref("messages/"+currentUser+"_"+myId).push(data);
+  sendNotification(chatUser,"New Message!");
+}
 
-  document.getElementById("msg").value="";
+// CHAT ID
+function getChatId(){
+  return currentUserId < chatUser 
+    ? currentUserId+"_"+chatUser 
+    : chatUser+"_"+currentUserId;
+}
+
+// UPLOAD PHOTO
+function upload(){
+  let file = document.getElementById("file").files[0];
+  let ref = storage.ref("profiles/"+file.name);
+
+  ref.put(file).then(()=>{
+    ref.getDownloadURL().then(url=>{
+      db.ref("users/"+currentUserId).update({photo:url});
+      alert("Uploaded!");
+    });
+  });
+}
+
+// NOTIFICATIONS
+function sendNotification(uid,text){
+  db.ref("notifications/"+uid).push({
+    text:text,
+    time:Date.now()
+  });
 }
 
 </script>
