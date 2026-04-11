@@ -2,21 +2,63 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Dating App</title>
+  <title>Dating App Pro</title>
+
   <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-storage.js"></script>
 
   <style>
-    body { font-family: sans-serif; margin:0; background:#f2f2f2; }
+    body { margin:0; font-family:sans-serif; background:#f2f2f2; }
+
     .screen { display:none; padding:10px; }
     .active { display:block; }
-    .card { background:#fff; padding:10px; margin:10px; border-radius:10px; }
+
+    .card {
+      position:absolute;
+      width:90%;
+      left:5%;
+      top:100px;
+      background:white;
+      border-radius:15px;
+      text-align:center;
+      padding:10px;
+      transition:0.3s;
+    }
+
     img { border-radius:10px; }
-    button { padding:10px; margin:5px; border:none; background:#ff4d6d; color:white; border-radius:5px; }
-    input { padding:10px; margin:5px; width:90%; }
-    .nav { position:fixed; bottom:0; width:100%; display:flex; background:#fff; }
+
+    button {
+      padding:10px;
+      border:none;
+      border-radius:5px;
+      background:#ff4d6d;
+      color:white;
+      margin:5px;
+    }
+
+    .nav {
+      position:fixed;
+      bottom:0;
+      width:100%;
+      display:flex;
+      background:white;
+    }
+
     .nav button { flex:1; background:#eee; color:black; }
+
+    #messages {
+      height:300px;
+      overflow:auto;
+      background:#fff;
+      padding:10px;
+      border-radius:10px;
+    }
+
+    .me { text-align:right; color:blue; }
+    .other { text-align:left; color:black; }
+
+    #typing { font-size:12px; color:gray; }
   </style>
 </head>
 
@@ -25,14 +67,14 @@
 <!-- LOGIN -->
 <div id="login" class="screen active">
   <h2>Login</h2>
-  <input id="name" placeholder="Enter name"><br>
-  <button onclick="login()">Enter</button>
+  <input id="name" placeholder="Enter name">
+  <button onclick="login()">Start</button>
 </div>
 
-<!-- HOME (Swipe Users) -->
+<!-- HOME (Swipe) -->
 <div id="home" class="screen">
   <h2>Discover</h2>
-  <div id="users"></div>
+  <div id="cards"></div>
 </div>
 
 <!-- MATCHES -->
@@ -45,7 +87,8 @@
 <div id="chat" class="screen">
   <h2>Chat</h2>
   <div id="messages"></div>
-  <input id="msg">
+  <div id="typing"></div>
+  <input id="msg" oninput="typing()">
   <button onclick="sendMsg()">Send</button>
 </div>
 
@@ -53,8 +96,7 @@
 <div id="profile" class="screen">
   <h2>Profile</h2>
   <input type="file" id="file">
-  <button onclick="upload()">Upload Photo</button>
-  <div id="myProfile"></div>
+  <button onclick="upload()">Upload</button>
 </div>
 
 <!-- NAV -->
@@ -72,147 +114,169 @@ const firebaseConfig = {
   projectId: "YOUR_ID",
   storageBucket: "YOUR_BUCKET"
 };
+
 firebase.initializeApp(firebaseConfig);
 let db = firebase.database();
 let storage = firebase.storage();
 
-let currentUserId = "";
-let chatUser = "";
+let currentUserId="";
+let chatUser="";
 
 // LOGIN
-function login() {
-  let name = document.getElementById("name").value;
-  currentUserId = "user_" + Date.now();
+function login(){
+  let name=document.getElementById("name").value;
+  currentUserId="user_"+Date.now();
 
-  db.ref("users/" + currentUserId).set({
-    name: name,
-    photo: ""
+  db.ref("users/"+currentUserId).set({
+    name:name,
+    photo:"",
+    online:true
   });
 
-  loadUsers();
+  loadCards();
   show("home");
+
+  // online status
+  db.ref("users/"+currentUserId+"/online").set(true);
+  window.onbeforeunload = ()=>{
+    db.ref("users/"+currentUserId+"/online").set(false);
+  }
 }
 
-// SWITCH SCREEN
+// SCREEN SWITCH
 function show(id){
   document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
   document.getElementById(id).classList.add("active");
 }
 
-// LOAD USERS
-function loadUsers(){
-  db.ref("users").on("value", snap=>{
-    let data = snap.val();
-    let html = "";
+// SWIPE CARDS
+function loadCards(){
+  db.ref("users").on("value",snap=>{
+    let data=snap.val();
+    let html="";
 
     for(let uid in data){
-      if(uid !== currentUserId){
-        let u = data[uid];
+      if(uid!==currentUserId){
+        let u=data[uid];
 
-        html += `
-          <div class="card">
-            <img src="${u.photo || 'https://via.placeholder.com/100'}" width="100"><br>
-            ${u.name}<br>
-            <button onclick="likeUser('${uid}')">Like ❤️</button>
-          </div>
+        html+=`
+        <div class="card" id="${uid}">
+          <img src="${u.photo || 'https://via.placeholder.com/200'}" width="200"><br>
+          <h3>${u.name}</h3>
+          <button onclick="swipe('${uid}',true)">❤️ Like</button>
+          <button onclick="swipe('${uid}',false)">❌ Nope</button>
+        </div>
         `;
       }
     }
-    document.getElementById("users").innerHTML = html;
+
+    document.getElementById("cards").innerHTML=html;
   });
 }
 
-// LIKE + MATCH
-function likeUser(uid){
-  db.ref("likes/"+currentUserId+"/"+uid).set(true);
+// SWIPE ACTION
+function swipe(uid,like){
+  let card=document.getElementById(uid);
+  card.style.transform=like?"translateX(400px)":"translateX(-400px)";
 
-  db.ref("likes/"+uid+"/"+currentUserId).once("value", snap=>{
-    if(snap.exists()){
-      // MATCH
-      db.ref("matches/"+currentUserId+"/"+uid).set(true);
-      db.ref("matches/"+uid+"/"+currentUserId).set(true);
+  if(like){
+    db.ref("likes/"+currentUserId+"/"+uid).set(true);
 
-      sendNotification(uid,"You got a match!");
-      alert("Matched!");
-    }
-  });
+    db.ref("likes/"+uid+"/"+currentUserId).once("value",snap=>{
+      if(snap.exists()){
+        db.ref("matches/"+currentUserId+"/"+uid).set(true);
+        db.ref("matches/"+uid+"/"+currentUserId).set(true);
+        alert("🔥 Match!");
+      }
+    });
+  }
+
+  setTimeout(()=>card.remove(),300);
 }
 
-// LOAD MATCHES
-db.ref("matches").on("value", snap=>{
+// MATCH LIST
+db.ref("matches").on("value",snap=>{
   if(!currentUserId) return;
-  let data = snap.val()?.[currentUserId];
-  let html = "";
+
+  let data=snap.val()?.[currentUserId];
+  let html="";
 
   for(let uid in data){
-    db.ref("users/"+uid).once("value", s=>{
-      let u = s.val();
+    db.ref("users/"+uid).once("value",s=>{
+      let u=s.val();
 
-      html += `
-        <div class="card" onclick="openChat('${uid}')">
-          <img src="${u.photo || 'https://via.placeholder.com/50'}" width="50">
-          ${u.name}
-        </div>
+      html+=`
+      <div onclick="openChat('${uid}')">
+        ${u.name} (${u.online?"🟢":"⚫"})
+      </div>
       `;
-      document.getElementById("matchList").innerHTML = html;
+
+      document.getElementById("matchList").innerHTML=html;
     });
   }
 });
 
-// OPEN CHAT
+// CHAT
 function openChat(uid){
-  chatUser = uid;
+  chatUser=uid;
   show("chat");
 
-  db.ref("chats/"+getChatId()).on("value", snap=>{
-    let data = snap.val();
-    let html = "";
+  db.ref("chats/"+getChatId()).on("value",snap=>{
+    let data=snap.val();
+    let html="";
 
     for(let id in data){
-      html += `<p>${data[id].sender}: ${data[id].text}</p>`;
+      let m=data[id];
+      html+=`<p class="${m.sender===currentUserId?"me":"other"}">${m.text}</p>`;
     }
 
-    document.getElementById("messages").innerHTML = html;
+    document.getElementById("messages").innerHTML=html;
+  });
+
+  // typing listener
+  db.ref("typing/"+uid).on("value",snap=>{
+    document.getElementById("typing").innerText=
+      snap.val()?"Typing...":"";
   });
 }
 
 // SEND MSG
 function sendMsg(){
-  let text = document.getElementById("msg").value;
+  let text=document.getElementById("msg").value;
 
   db.ref("chats/"+getChatId()).push({
-    sender: currentUserId,
-    text: text
+    sender:currentUserId,
+    text:text
   });
 
-  sendNotification(chatUser,"New Message!");
+  db.ref("typing/"+currentUserId).set(false);
+}
+
+// TYPING
+function typing(){
+  db.ref("typing/"+currentUserId).set(true);
+  setTimeout(()=>{
+    db.ref("typing/"+currentUserId).set(false);
+  },2000);
 }
 
 // CHAT ID
 function getChatId(){
-  return currentUserId < chatUser 
-    ? currentUserId+"_"+chatUser 
+  return currentUserId<chatUser
+    ? currentUserId+"_"+chatUser
     : chatUser+"_"+currentUserId;
 }
 
 // UPLOAD PHOTO
 function upload(){
-  let file = document.getElementById("file").files[0];
-  let ref = storage.ref("profiles/"+file.name);
+  let file=document.getElementById("file").files[0];
+  let ref=storage.ref("profiles/"+file.name);
 
   ref.put(file).then(()=>{
     ref.getDownloadURL().then(url=>{
       db.ref("users/"+currentUserId).update({photo:url});
       alert("Uploaded!");
     });
-  });
-}
-
-// NOTIFICATIONS
-function sendNotification(uid,text){
-  db.ref("notifications/"+uid).push({
-    text:text,
-    time:Date.now()
   });
 }
 
