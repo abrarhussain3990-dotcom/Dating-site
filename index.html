@@ -127,9 +127,41 @@ db.ref("users").on("value", snap=>{
 // 👀 SHOW USER
 function showUser(){
   if(users.length === 0){
-    document.getElementById("card").innerText="No users";
+    document.getElementById("card").innerText = "No users";
     return;
-  }
+ }
+
+
+ currentUser = users[index];
+
+  db.ref("users/"+currentUser).once("value", function(snap){
+    var u = snap.val();
+
+    var status = "⚫ Offline";
+
+    if(u && u.online === true){
+      status = "🟢 Online";
+    }
+
+    document.getElementById("card").innerText =
+      currentUser + "\n" + status;
+  });
+      }
+  currentUser = users[index];
+
+  db.ref("users/"+currentUser).once("value", function(snap){
+    var u = snap.val();
+
+    var status = "⚫ Offline";
+
+    if(u && u.online === true){
+      status = "🟢 Online";
+    }
+
+    document.getElementById("card").innerText =
+      currentUser + "\n" + status;
+  });
+}
   currentUser = users[index];
   document.getElementById("card").innerText = currentUser;
 }
