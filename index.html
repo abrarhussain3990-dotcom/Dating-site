@@ -102,7 +102,15 @@ if(!myId){
 }
 
 // 👤 SAVE USER
-db.ref("users/"+myId).set({name:myId});
+db.ref("users/"+myId).set({
+  name: myId,
+  online: true
+});
+
+// offline detect
+window.addEventListener("beforeunload", ()=>{
+  db.ref("users/"+myId+"/online").set(false);
+});
 
 // 👥 LOAD USERS
 var users = [];
