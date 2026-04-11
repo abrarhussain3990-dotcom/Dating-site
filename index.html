@@ -109,7 +109,12 @@ firebase.initializeApp(firebaseConfig);
 var db = firebase.database();
 
 // 👤 user id
-var myId = "user_" + Math.floor(Math.random()*10000);
+var myId = localStorage.getItem("myId");
+
+if(!myId){
+  myId = prompt("Apna username likho (same rakhna)");
+  localStorage.setItem("myId", myId);
+}
 
 // 👥 users
 var users = ["Ali","Sara","Zain","Ayesha","Hina"];
