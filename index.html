@@ -221,6 +221,196 @@ card.addEventListener("touchend", e=>{
 window.onload = showUser;
 
 </script>
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Dating App Pro</title>
+
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+
+<style>
+body{
+  margin:0;
+  font-family:Arial;
+  background:#111;
+  color:#fff;
+  text-align:center;
+}
+
+#card{
+  width:300px;
+  height:400px;
+  background:#222;
+  margin:40px auto;
+  border-radius:20px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:24px;
+}
+
+.buttons button{
+  padding:10px;
+  margin:10px;
+  border:none;
+  border-radius:10px;
+}
+
+.like{background:green;}
+.pass{background:red;}
+
+#chat{display:none;}
+
+.msg{
+  padding:8px;
+  margin:5px;
+  border-radius:10px;
+  max-width:70%;
+}
+
+.me{
+  background:#0f0;
+  margin-left:auto;
+}
+
+.other{
+  background:#333;
+  margin-right:auto;
+}
+</style>
+</head>
+
+<body>
+
+<h2>🔥 Dating App Pro</h2>
+
+<div id="app">
+  <div id="card">Loading...</div>
+  <button class="pass" onclick="pass()">❌</button>
+  <button class="like" onclick="like()">❤️</button>
+</div>
+
+<div id="chat">
+  <h3>💬 Chat</h3>
+  <div id="messages"></div>
+  <input id="msg">
+  <button onclick="sendMsg()">Send</button>
+</div>
+
+<script>
+
+// 🔥 FIREBASE CONFIG (tumhara)
+var firebaseConfig = {
+  apiKey: "AIzaSyDVcQgFke5tSEU9BZk1YhZfSro7X_yIpg4",
+  authDomain: "dating-app-d9a67.firebaseapp.com",
+  databaseURL: "https://dating-app-d9a67-default-rtdb.firebaseio.com",
+  projectId: "dating-app-d9a67",
+  storageBucket: "dating-app-d9a67.firebasestorage.app",
+  messagingSenderId: "338502840906",
+  appId: "1:338502840906:web:b2b9c5b01ec7cf7c02acb3"
+};
+
+firebase.initializeApp(firebaseConfig);
+var db = firebase.database();
+
+// 👤 USER LOGIN
+var myId = localStorage.getItem("myId");
+
+if(!myId){
+  myId = prompt("Apna naam likho");
+  localStorage.setItem("myId", myId);
+}
+
+// 👤 SAVE USER
+db.ref("users/"+myId).set({name:myId});
+
+// 👥 LOAD USERS
+var users = [];
+var index = 0;
+var currentUser = "";
+
+db.ref("users").on("value", snap=>{
+  let data = snap.val() || {};
+  users = Object.keys(data).filter(u => u !== myId);
+  index = 0;
+  showUser();
+});
+
+// 👀 SHOW USER
+function showUser(){
+  if(users.length === 0){
+    document.getElementById("card").innerText="No users";
+    return;
+  }
+  currentUser = users[index];
+  document.getElementById("card").innerText = currentUser;
+}
+
+// ⏭ NEXT
+function next(){
+  index++;
+  if(index >= users.length) index=0;
+  showUser();
+}
+
+// ❤️ LIKE
+function like(){
+  db.ref("likes/"+myId+"/"+currentUser).set(true);
+
+  db.ref("likes/"+currentUser+"/"+myId).once("value", snap=>{
+    if(snap.exists()){
+      alert("🔥 MATCH!");
+      startChat(currentUser);
+    } else {
+      next();
+    }
+  });
+}
+
+// ❌ PASS
+function pass(){
+  next();
+}
+
+// 💬 CHAT
+function startChat(user){
+  document.getElementById("app").style.display="none";
+  document.getElementById("chat").style.display="block";
+
+  db.ref("messages/"+myId+"_"+user).on("value", snap=>{
+    let data = snap.val() || {};
+    let html="";
+
+    Object.values(data).forEach(m=>{
+      if(m.sender === myId){
+        html += "<div class='msg me'>"+m.text+"</div>";
+      } else {
+        html += "<div class='msg other'>"+m.text+"</div>";
+      }
+    });
+
+    document.getElementById("messages").innerHTML = html;
+  });
+}
+
+// 📩 SEND
+function sendMsg(){
+  let msg = document.getElementById("msg").value;
+  if(!msg) return;
+
+  let data = {text:msg, sender:myId};
+
+  db.ref("messages/"+myId+"_"+currentUser).push(data);
+  db.ref("messages/"+currentUser+"_"+myId).push(data);
+
+  document.getElementById("msg").value="";
+}
+
+</script>
 
 </body>
 </html>
+</body>
+</html>  
