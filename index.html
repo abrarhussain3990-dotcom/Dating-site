@@ -1,4 +1,16 @@
-
+function showUser() {
+  console.log("Showing user...");
+  currentUser = users[index];
+  
+  let card = document.getElementById("card");
+  if(card){
+    card.innerText = currentUser;
+  } else {
+    console.log("Card not found!");
+  }
+}window.onload = function(){
+  showUser();
+};
 <!DOCTYPE html>
 <html>
 <head>
