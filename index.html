@@ -3,7 +3,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Dating App Pro</title>
+<title>Dating App Final</title>
 
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
@@ -27,9 +27,10 @@ body{
   align-items:center;
   justify-content:center;
   font-size:24px;
+  white-space:pre-line;
 }
 
-.buttons button{
+button{
   padding:10px;
   margin:10px;
   border:none;
@@ -48,21 +49,14 @@ body{
   max-width:70%;
 }
 
-.me{
-  background:#0f0;
-  margin-left:auto;
-}
-
-.other{
-  background:#333;
-  margin-right:auto;
-}
+.me{background:#0f0; margin-left:auto;}
+.other{background:#333; margin-right:auto;}
 </style>
 </head>
 
 <body>
 
-<h2>🔥 Dating App Pro</h2>
+<h2>🔥 Dating App Final</h2>
 
 <div id="app">
   <div id="card">Loading...</div>
@@ -79,7 +73,7 @@ body{
 
 <script>
 
-// 🔥 FIREBASE CONFIG (tumhara)
+// 🔥 FIREBASE CONFIG
 var firebaseConfig = {
   apiKey: "AIzaSyDVcQgFke5tSEU9BZk1YhZfSro7X_yIpg4",
   authDomain: "dating-app-d9a67.firebaseapp.com",
@@ -93,22 +87,21 @@ var firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 var db = firebase.database();
 
-// 👤 USER LOGIN
+// 👤 LOGIN
 var myId = localStorage.getItem("myId");
-
 if(!myId){
   myId = prompt("Apna naam likho");
   localStorage.setItem("myId", myId);
 }
 
-// 👤 SAVE USER
+// 👤 SAVE USER + ONLINE
 db.ref("users/"+myId).set({
   name: myId,
   online: true
 });
 
 // offline detect
-window.addEventListener("beforeunload", ()=>{
+window.addEventListener("beforeunload", function(){
   db.ref("users/"+myId+"/online").set(false);
 });
 
@@ -117,53 +110,41 @@ var users = [];
 var index = 0;
 var currentUser = "";
 
-db.ref("users").on("value", snap=>{
-  let data = snap.val() || {};
-  users = Object.keys(data).filter(u => u !== myId);
+db.ref("users").on("value", function(snap){
+  var data = snap.val();
+
+  if(!data){
+    users = [];
+  } else {
+    users = Object.keys(data).filter(function(u){
+      return u !== myId;
+    });
+  }
+
   index = 0;
   showUser();
 });
 
-// 👀 SHOW USER
+// 👀 SHOW USER + STATUS
 function showUser(){
   if(users.length === 0){
     document.getElementById("card").innerText = "No users";
     return;
- }
+  }
 
-
- currentUser = users[index];
+  currentUser = users[index];
 
   db.ref("users/"+currentUser).once("value", function(snap){
     var u = snap.val();
-
     var status = "⚫ Offline";
 
-    if(u && u.online === true){
+    if(u && u.online){
       status = "🟢 Online";
     }
 
     document.getElementById("card").innerText =
       currentUser + "\n" + status;
   });
-      }
-  currentUser = users[index];
-
-  db.ref("users/"+currentUser).once("value", function(snap){
-    var u = snap.val();
-
-    var status = "⚫ Offline";
-
-    if(u && u.online === true){
-      status = "🟢 Online";
-    }
-
-    document.getElementById("card").innerText =
-      currentUser + "\n" + status;
-  });
-}
-  currentUser = users[index];
-  document.getElementById("card").innerText = currentUser;
 }
 
 // ⏭ NEXT
@@ -173,11 +154,11 @@ function next(){
   showUser();
 }
 
-// ❤️ LIKE
+// ❤️ LIKE + MATCH
 function like(){
   db.ref("likes/"+myId+"/"+currentUser).set(true);
 
-  db.ref("likes/"+currentUser+"/"+myId).once("value", snap=>{
+  db.ref("likes/"+currentUser+"/"+myId).once("value", function(snap){
     if(snap.exists()){
       alert("🔥 MATCH!");
       startChat(currentUser);
@@ -197,11 +178,11 @@ function startChat(user){
   document.getElementById("app").style.display="none";
   document.getElementById("chat").style.display="block";
 
-  db.ref("messages/"+myId+"_"+user).on("value", snap=>{
-    let data = snap.val() || {};
-    let html="";
+  db.ref("messages/"+myId+"_"+user).on("value", function(snap){
+    var data = snap.val() || {};
+    var html = "";
 
-    Object.values(data).forEach(m=>{
+    Object.values(data).forEach(function(m){
       if(m.sender === myId){
         html += "<div class='msg me'>"+m.text+"</div>";
       } else {
@@ -215,10 +196,10 @@ function startChat(user){
 
 // 📩 SEND
 function sendMsg(){
-  let msg = document.getElementById("msg").value;
+  var msg = document.getElementById("msg").value;
   if(!msg) return;
 
-  let data = {text:msg, sender:myId};
+  var data = {text: msg, sender: myId};
 
   db.ref("messages/"+myId+"_"+currentUser).push(data);
   db.ref("messages/"+currentUser+"_"+myId).push(data);
@@ -230,5 +211,3 @@ function sendMsg(){
 
 </body>
 </html>
-</body>
-</html>  
