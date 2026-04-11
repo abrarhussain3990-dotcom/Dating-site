@@ -2,185 +2,127 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>HeartLink 🔥</title>
-  <style>
-    body { font-family: Arial; text-align:center; }
-let users = ["user1","user2"];function nextUser(){
-  currentProfile = users.find(u => u !== currentUser);
-  document.getElementById("card").innerText = currentProfile;
+<meta charset="UTF-8">
+<title>Mini Dating App</title>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+
+<style>
+body { font-family: Arial; background:#111; color:#fff; text-align:center; }
+.card {
+  width:300px; height:400px; background:#222;
+  margin:20px auto; border-radius:20px;
+  display:flex; align-items:center; justify-content:center;
+  font-size:24px; transition:0.3s;
 }
-    #card {
-      width: 250px;
-      height: 300px;
-      border: 2px solid #ccc;
-      margin: 20px auto;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      font-size:20px;
-      border-radius:10px;
-      position:relative;
-      touch-action:none;
-    }
-<button onclick="like()">❤️ Like</button>
-<button onclick="nextUser()">❌ Skip</button>
-    #chatBox {
-      display:none;
-      border-top:2px solid #ccc;
-      padding:10px;
-    }
-
-    #messages {
-      height:200px;
-      overflow:auto;
-      border:1px solid #ccc;
-      margin-bottom:10px;
-      text-align:left;
-      padding:5px;
-    }
-
-    .me { text-align:right; color:blue; }
-  </style>
+.buttons button {
+  padding:10px 20px; margin:10px;
+  border:none; border-radius:10px;
+  cursor:pointer; font-size:18px;
+}
+.like { background:green; }
+.pass { background:red; }
+#chat { display:none; }
+</style>
 </head>
 
 <body>
 
-<h2>HeartLink ❤️</h2>
+<h2>Mini Dating App</h2>
 
-<input id="username" placeholder="Your name">
-<button onclick="start()">Start</button>
+<div id="app">
+  <div id="card" class="card">User Loading...</div>
+  
+  <div class="buttons">
+    <button class="pass" onclick="pass()">Pass ❌</button>
+    <button class="like" onclick="like()">Like ❤️</button>
+  </div>
+</div>
 
-<div id="card">Swipe users 👇</div>
-
-<div id="chatBox">
-  <h3 id="chatWith"></h3>
+<div id="chat">
+  <h3>Chat</h3>
   <div id="messages"></div>
   <input id="msg" placeholder="Type message">
   <button onclick="sendMsg()">Send</button>
 </div>
 
-<script type="module">
-
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getDatabase, ref, push, set, get, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
-
-const firebaseConfig = {
+<script>
+// 🔥 Firebase config (APNA YAHAN DALO)
+var firebaseConfig = {
   apiKey: "YOUR_KEY",
-  authDomain: "YOUR_PROJECT.firebaseapp.com",
-  databaseURL: "https://YOUR_PROJECT-default-rtdb.firebaseio.com",
-  projectId: "YOUR_PROJECT"
+  authDomain: "YOUR_DOMAIN",
+  databaseURL: "YOUR_DB",
+  projectId: "YOUR_ID"
 };
+firebase.initializeApp(firebaseConfig);
+var db = firebase.database();
 
-const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
+// 👤 Fake login (random user id)
+var myId = "user_" + Math.floor(Math.random()*1000);
 
-let currentUser = "";
-let users = ["user1","user2","user3"];
-let currentProfile = "";
+// 👥 Dummy users
+var users = ["Ali", "Sara", "Zain", "Ayesha"];
+var index = 0;
+var currentUser = users[index];
 
-// START
-window.start = function(){
-  currentUser = document.getElementById("username").value.trim();
+// 🔄 Show user
+function showUser() {
+  currentUser = users[index];
+  document.getElementById("card").innerText = currentUser;
+}
+showUser();
 
-  if(!currentUser){
-    alert("Enter your name!");
-    return;
-  }
+// ❤️ Like
+function like() {
+  db.ref("likes/"+myId+"/"+currentUser).set(true);
 
-  nextUser();
-};
-
-// SHOW USER
-function nextUser(){
-  currentProfile = users[Math.floor(Math.random()*users.length)];
-
-  if(currentProfile === currentUser){
-    return nextUser();
-  }
-
-  document.getElementById("card").innerText = currentProfile;
+  // check match
+  db.ref("likes/"+currentUser+"/"+myId).once("value", snap=>{
+    if(snap.exists()){
+      startChat(currentUser);
+    } else {
+      next();
+    }
+  });
 }
 
-// SWIPE
-let card = document.getElementById("card");
-let startX = 0;
-
-card.addEventListener("touchstart", e=>{
-  startX = e.touches[0].clientX;
-});
-
-card.addEventListener("touchend", async e=>{
-  let endX = e.changedTouches[0].clientX;
-
-  if(endX - startX > 50){
-    like();
-  } else if(startX - endX > 50){
-    nextUser();
-  }
-});
-
-// LIKE
-async function like(){
-  if(!currentUser || !currentProfile) return;
-
-  await set(ref(db, `swipes/${currentUser}/${currentProfile}`), true);
-
-  let snap = await get(ref(db, `swipes/${currentProfile}/${currentUser}`));
-
-  if(snap.exists()){
-    alert("🔥 MATCH!");
-    openChat();
-  } else {
-    nextUser();
-  }
+// ❌ Pass
+function pass(){
+  next();
 }
 
-// CHAT ID
-function chatId(a,b){
-  return a < b ? a + "_" + b : b + "_" + a;
+// ⏭ Next user
+function next(){
+  index++;
+  if(index >= users.length) index=0;
+  showUser();
 }
 
-// OPEN CHAT
-function openChat(){
-  document.getElementById("chatBox").style.display="block";
-  document.getElementById("chatWith").innerText = "Chat with " + currentProfile;
+// 💬 Chat start
+function startChat(user){
+  document.getElementById("app").style.display="none";
+  document.getElementById("chat").style.display="block";
 
-  let id = chatId(currentUser,currentProfile);
-
-  onValue(ref(db,"chats/"+id),(snap)=>{
-    let data = snap.val();
-    let box = document.getElementById("messages");
-
-    box.innerHTML="";
-
-    if(!data) return;
-
-    Object.values(data).forEach(msg=>{
-      box.innerHTML += `<p class="${msg.sender===currentUser?'me':''}">${msg.text}</p>`;
+  db.ref("messages/"+myId+"_"+user).on("value", snap=>{
+    let data = snap.val() || {};
+    let html = "";
+    Object.values(data).forEach(m=>{
+      html += "<p>"+m+"</p>";
     });
+    document.getElementById("messages").innerHTML = html;
   });
-
-  // ONLINE STATUS
-  set(ref(db, "online/"+currentUser), true);
 }
 
-// SEND
-window.sendMsg = function(){
-  let text = document.getElementById("msg").value;
+// 📩 Send msg
+function sendMsg(){
+  let msg = document.getElementById("msg").value;
+  if(!msg) return;
 
-  if(!text) return;
-
-  let id = chatId(currentUser,currentProfile);
-
-  push(ref(db,"chats/"+id),{
-    text: text,
-    sender: currentUser,
-    time: Date.now()
-  });
+  db.ref("messages/"+myId+"_"+currentUser).push(msg);
+  db.ref("messages/"+currentUser+"_"+myId).push(msg);
 
   document.getElementById("msg").value="";
-};
-
+}
 </script>
 
 </body>
