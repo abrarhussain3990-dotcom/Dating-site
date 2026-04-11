@@ -2,7 +2,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Dating App Pro</title>
+  <title>Dating App PRO+</title>
 
   <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
@@ -23,18 +23,6 @@
       border-radius:15px;
       text-align:center;
       padding:10px;
-      transition:0.3s;
-    }
-
-    img { border-radius:10px; }
-
-    button {
-      padding:10px;
-      border:none;
-      border-radius:5px;
-      background:#ff4d6d;
-      color:white;
-      margin:5px;
     }
 
     .nav {
@@ -45,7 +33,7 @@
       background:white;
     }
 
-    .nav button { flex:1; background:#eee; color:black; }
+    .nav button { flex:1; }
 
     #messages {
       height:300px;
@@ -55,51 +43,67 @@
       border-radius:10px;
     }
 
-    .me { text-align:right; color:blue; }
-    .other { text-align:left; color:black; }
+    .me {
+      text-align:right;
+      background:#ff4d6d;
+      color:white;
+      padding:8px;
+      border-radius:10px;
+      margin:5px;
+      display:inline-block;
+    }
 
-    #typing { font-size:12px; color:gray; }
+    .other {
+      text-align:left;
+      background:#ddd;
+      padding:8px;
+      border-radius:10px;
+      margin:5px;
+      display:inline-block;
+    }
+
+    img { border-radius:10px; max-width:150px; }
   </style>
 </head>
 
 <body>
 
-<!-- LOGIN -->
 <div id="login" class="screen active">
   <h2>Login</h2>
   <input id="name" placeholder="Enter name">
   <button onclick="login()">Start</button>
 </div>
 
-<!-- HOME (Swipe) -->
 <div id="home" class="screen">
   <h2>Discover</h2>
   <div id="cards"></div>
 </div>
 
-<!-- MATCHES -->
 <div id="matches" class="screen">
   <h2>Matches</h2>
   <div id="matchList"></div>
 </div>
 
-<!-- CHAT -->
 <div id="chat" class="screen">
   <h2>Chat</h2>
   <div id="messages"></div>
-  <div id="typing"></div>
-  <input id="msg" oninput="typing()">
+
+  <input id="msg">
   <button onclick="sendMsg()">Send</button>
+
+  <input type="file" id="imgFile">
+  <button onclick="sendImage()">📸</button>
+
+  <button onclick="startRecording()">🎤 Record</button>
+  <button onclick="stopRecording()">Stop</button>
 </div>
 
-<!-- PROFILE -->
 <div id="profile" class="screen">
   <h2>Profile</h2>
   <input type="file" id="file">
   <button onclick="upload()">Upload</button>
 </div>
 
-<!-- NAV -->
 <div class="nav">
   <button onclick="show('home')">Home</button>
   <button onclick="show('matches')">Matches</button>
@@ -121,6 +125,8 @@ let storage = firebase.storage();
 
 let currentUserId="";
 let chatUser="";
+let mediaRecorder;
+let audioChunks=[];
 
 // LOGIN
 function login(){
@@ -128,28 +134,22 @@ function login(){
   currentUserId="user_"+Date.now();
 
   db.ref("users/"+currentUserId).set({
-    name:name,
-    photo:"",
-    online:true
+    name:name
   });
 
   loadCards();
   show("home");
 
-  // online status
-  db.ref("users/"+currentUserId+"/online").set(true);
-  window.onbeforeunload = ()=>{
-    db.ref("users/"+currentUserId+"/online").set(false);
-  }
+  Notification.requestPermission();
 }
 
-// SCREEN SWITCH
+// SCREEN
 function show(id){
   document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
   document.getElementById(id).classList.add("active");
 }
 
-// SWIPE CARDS
+// USERS
 function loadCards(){
   db.ref("users").on("value",snap=>{
     let data=snap.val();
@@ -157,16 +157,11 @@ function loadCards(){
 
     for(let uid in data){
       if(uid!==currentUserId){
-        let u=data[uid];
-
         html+=`
-        <div class="card" id="${uid}">
-          <img src="${u.photo || 'https://via.placeholder.com/200'}" width="200"><br>
-          <h3>${u.name}</h3>
-          <button onclick="swipe('${uid}',true)">❤️ Like</button>
-          <button onclick="swipe('${uid}',false)">❌ Nope</button>
-        </div>
-        `;
+        <div class="card">
+          <h3>${data[uid].name}</h3>
+          <button onclick="like('${uid}')">❤️</button>
+        </div>`;
       }
     }
 
@@ -174,43 +169,27 @@ function loadCards(){
   });
 }
 
-// SWIPE ACTION
-function swipe(uid,like){
-  let card=document.getElementById(uid);
-  card.style.transform=like?"translateX(400px)":"translateX(-400px)";
+// LIKE
+function like(uid){
+  db.ref("likes/"+currentUserId+"/"+uid).set(true);
 
-  if(like){
-    db.ref("likes/"+currentUserId+"/"+uid).set(true);
-
-    db.ref("likes/"+uid+"/"+currentUserId).once("value",snap=>{
-      if(snap.exists()){
-        db.ref("matches/"+currentUserId+"/"+uid).set(true);
-        db.ref("matches/"+uid+"/"+currentUserId).set(true);
-        alert("🔥 Match!");
-      }
-    });
-  }
-
-  setTimeout(()=>card.remove(),300);
+  db.ref("likes/"+uid+"/"+currentUserId).once("value",snap=>{
+    if(snap.exists()){
+      db.ref("matches/"+currentUserId+"/"+uid).set(true);
+      db.ref("matches/"+uid+"/"+currentUserId).set(true);
+      alert("🔥 Match!");
+    }
+  });
 }
 
 // MATCH LIST
 db.ref("matches").on("value",snap=>{
-  if(!currentUserId) return;
-
   let data=snap.val()?.[currentUserId];
   let html="";
 
   for(let uid in data){
     db.ref("users/"+uid).once("value",s=>{
-      let u=s.val();
-
-      html+=`
-      <div onclick="openChat('${uid}')">
-        ${u.name} (${u.online?"🟢":"⚫"})
-      </div>
-      `;
-
+      html+=`<div onclick="openChat('${uid}')">${s.val().name}</div>`;
       document.getElementById("matchList").innerHTML=html;
     });
   }
@@ -227,37 +206,83 @@ function openChat(uid){
 
     for(let id in data){
       let m=data[id];
-      html+=`<p class="${m.sender===currentUserId?"me":"other"}">${m.text}</p>`;
+
+      if(m.type==="text"){
+        html+=`<div class="${m.sender===currentUserId?"me":"other"}">${m.text}</div>`;
+      }
+
+      if(m.type==="img"){
+        html+=`<img src="${m.url}">`;
+      }
+
+      if(m.type==="audio"){
+        html+=`<audio controls src="${m.url}"></audio>`;
+      }
     }
 
     document.getElementById("messages").innerHTML=html;
   });
-
-  // typing listener
-  db.ref("typing/"+uid).on("value",snap=>{
-    document.getElementById("typing").innerText=
-      snap.val()?"Typing...":"";
-  });
 }
 
-// SEND MSG
+// TEXT
 function sendMsg(){
   let text=document.getElementById("msg").value;
 
   db.ref("chats/"+getChatId()).push({
     sender:currentUserId,
-    text:text
+    text:text,
+    type:"text"
   });
 
-  db.ref("typing/"+currentUserId).set(false);
+  notify("New Message!");
 }
 
-// TYPING
-function typing(){
-  db.ref("typing/"+currentUserId).set(true);
-  setTimeout(()=>{
-    db.ref("typing/"+currentUserId).set(false);
-  },2000);
+// IMAGE
+function sendImage(){
+  let file=document.getElementById("imgFile").files[0];
+  let ref=storage.ref("chat/"+file.name);
+
+  ref.put(file).then(()=>{
+    ref.getDownloadURL().then(url=>{
+      db.ref("chats/"+getChatId()).push({
+        sender:currentUserId,
+        url:url,
+        type:"img"
+      });
+    });
+  });
+}
+
+// VOICE
+async function startRecording(){
+  let stream=await navigator.mediaDevices.getUserMedia({audio:true});
+  mediaRecorder=new MediaRecorder(stream);
+
+  mediaRecorder.start();
+  audioChunks=[];
+
+  mediaRecorder.ondataavailable=e=>{
+    audioChunks.push(e.data);
+  };
+}
+
+function stopRecording(){
+  mediaRecorder.stop();
+
+  mediaRecorder.onstop=()=>{
+    let blob=new Blob(audioChunks);
+    let ref=storage.ref("voice/"+Date.now()+".webm");
+
+    ref.put(blob).then(()=>{
+      ref.getDownloadURL().then(url=>{
+        db.ref("chats/"+getChatId()).push({
+          sender:currentUserId,
+          url:url,
+          type:"audio"
+        });
+      });
+    });
+  };
 }
 
 // CHAT ID
@@ -267,7 +292,7 @@ function getChatId(){
     : chatUser+"_"+currentUserId;
 }
 
-// UPLOAD PHOTO
+// PROFILE PIC
 function upload(){
   let file=document.getElementById("file").files[0];
   let ref=storage.ref("profiles/"+file.name);
@@ -275,11 +300,16 @@ function upload(){
   ref.put(file).then(()=>{
     ref.getDownloadURL().then(url=>{
       db.ref("users/"+currentUserId).update({photo:url});
-      alert("Uploaded!");
     });
   });
 }
 
+// NOTIFICATION
+function notify(text){
+  if(Notification.permission==="granted"){
+    new Notification(text);
+  }
+}
 </script>
 
 </body>
