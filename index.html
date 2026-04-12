@@ -1,236 +1,122 @@
 
-<!DOCTYPE html>
-<html>
-<head>
-  <title>Dating App Pro</title>
-  <style>
-    body{font-family:Arial;background:#111;color:white;text-align:center;}
-    .nav{position:fixed;bottom:0;width:100%;display:flex;justify-content:space-around;background:#000;padding:10px;}
-    .screen{display:none;}
-    .active{display:block;}
-    img{width:150px;height:150px;border-radius:50%;}
-    #chat{height:200px;overflow:auto;background:#000;margin:10px;padding:10px;}
-    input,button{padding:10px;margin:5px;border-radius:10px;}
-  </style>
-</head>
-<body>
+// ===============================
+// 🔥 BADOO / TINDER STYLE DATING APP (FULL CORE)
+// ===============================
 
-<h2>💘 Dating App</h2>
+// Firebase SDK imports
+import { initializeApp } from "firebase/app";
+import { getAnalytics, isSupported } from "firebase/analytics";
+import { getAuth, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
+import {
+  getFirestore,
+  doc,
+  setDoc,
+  getDoc,
+  updateDoc,
+  arrayUnion
+} from "firebase/firestore";
+import { getStorage } from "firebase/storage";
 
-<!-- MATCH -->
-<div id="match" class="screen active">
-  <h3 id="uName">Loading...</h3>
-  <img id="uImg"><p id="uInfo"></p>
-  <button onclick="like()">❤️ Like</button>
-  <button onclick="skip()">❌ Skip</button>
-</div>
-
-<!-- PROFILE -->
-<div id="profile" class="screen">
-  <h3>Create Profile</h3>
-  <input id="name" placeholder="Name"><br>
-  <input type="file" id="file"><br>
-  <button onclick="saveProfile()">Save</button>
-</div>
-
-<!-- CHAT -->
-<div id="chatBox" class="screen">
-  <h3>Chat</h3>
-  <div id="chat"></div>
-  <input id="msg">
-  <button onclick="sendMsg()">Send</button>
-</div>
-
-<!-- NAV -->
-<div class="nav">
-  <button onclick="show('match')">Match</button>
-  <button onclick="show('profile')">Profile</button>
-  <button onclick="show('chatBox')">Chat</button>
-</div>
-
-<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
-
-<script>
+// ===============================
+// 🔐 YOUR FIREBASE CONFIG
+// ===============================
 const firebaseConfig = {
-  apiKey: "AIzaSyBGOFD_ukCDkeg5FPf8z_nP7yAzCZXCV7o",
-  projectId: "dating-app-21c55"
+  apiKey: "AIzaSyBGOFD_ukCDkeg5FPf8z_nP7yAzCZXCV8o",
+  authDomain: "dating-app-21c55.firebaseapp.com",
+  projectId: "dating-app-21c55",
+  storageBucket: "dating-app-21c55.firebasestorage.app",
+  messagingSenderId: "101828106221",
+  appId: "1:101828106221:web:a688cefbcfb1541a79f9e4",
+  measurementId: "G-7GC4WQY4ED"
 };
 
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
+// ===============================
+// 🚀 INIT FIREBASE
+// ===============================
+const app = initializeApp(firebaseConfig);
 
-let user = {};
-let users = [];
-let index = 0;
-let matchUser = null;
-let imgData = "";
+// ===============================
+// 🔐 AUTH SYSTEM
+// ===============================
+export const auth = getAuth(app);
+export const googleProvider = new GoogleAuthProvider();
 
-/* NAV */
-function show(id){
-  document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
-  document.getElementById(id).classList.add("active");
-}
+// ===============================
+// 💾 DATABASE
+// ===============================
+export const db = getFirestore(app);
 
-/* IMAGE */
-file.onchange = e=>{
-  let reader = new FileReader();
-  reader.onload = ()=> imgData = reader.result;
-  reader.readAsDataURL(e.target.files[0]);
+// ===============================
+// 📸 STORAGE
+// ===============================
+export const storage = getStorage(app);
+
+// ===============================
+// 📊 ANALYTICS SAFE
+// ===============================
+let analytics = null;
+isSupported().then((ok) => {
+  if (ok) analytics = getAnalytics(app);
+});
+export { analytics };
+
+// ===============================
+// 🔑 GOOGLE LOGIN
+// ===============================
+export const googleLogin = async () => {
+  const result = await signInWithPopup(auth, googleProvider);
+  return result.user;
 };
 
-/* SAVE PROFILE */
-async function saveProfile(){
-  let nameVal = document.getElementById("name").value.trim();
+// ===============================
+// 👤 CREATE USER PROFILE
+// ===============================
+export const createUserProfile = async (user) => {
+  await setDoc(doc(db, "users", user.uid), {
+    uid: user.uid,
+    name: user.displayName || "",
+    email: user.email,
+    photo: user.photoURL || "",
+    bio: "",
+    age: "",
+    gender: "",
+    likes: [],
+    matches: [],
+    createdAt: Date.now()
+  });
+};
 
-  if(!nameVal){
-    alert("Name daalo");
-    return;
-  }
+// ===============================
+// ❤️ LIKE / MATCH SYSTEM
+// ===============================
+export const likeUser = async (myId, targetId) => {
+  const myRef = doc(db, "users", myId);
+  const targetRef = doc(db, "users", targetId);
 
-  user = { name:nameVal, photo:imgData };
+  // add like
+  await updateDoc(myRef, {
+    likes: arrayUnion(targetId)
+  });
 
-  await db.collection("users").add(user);
+  // check match
+  const targetSnap = await getDoc(targetRef);
 
-  alert("Profile Saved!");
-  loadUsers();
-}
+  if (targetSnap.exists()) {
+    const targetData = targetSnap.data();
 
-/* LOAD USERS (REAL + FAKE) */
-async function loadUsers(){
-  let snap = await db.collection("users").get();
+    if (targetData.likes?.includes(myId)) {
+      // 💕 MATCH FOUND
+      await updateDoc(myRef, {
+        matches: arrayUnion(targetId)
+      });
 
-  users = [];
+      await updateDoc(targetRef, {
+        matches: arrayUnion(myId)
+      });
 
-  snap.forEach(doc=>{
-    let u = doc.data();
-
-    if(u.name !== user.name){
-      users.push(u);
+      return "MATCH";
     }
-  });
-
-  if(users.length < 5){
-    users.push(
-      {name:"Ayesha", photo:"https://randomuser.me/api/portraits/women/1.jpg"},
-      {name:"Sara", photo:"https://randomuser.me/api/portraits/women/2.jpg"},
-      {name:"Hina", photo:"https://randomuser.me/api/portraits/women/3.jpg"},
-      {name:"Zara", photo:"https://randomuser.me/api/portraits/women/4.jpg"}
-    );
   }
 
-  index = 0;
-  showUser();
-}
-
-/* SHOW USER */
-function showUser(){
-  if(users.length == 0){
-    uName.innerText="No users";
-    return;
-  }
-
-  let u = users[index];
-  uName.innerText = u.name;
-  uImg.src = u.photo || "";
-  uInfo.innerText = "Like or Skip";
-}
-
-/* SKIP */
-function skip(){
-  index++;
-  if(index >= users.length) index = 0;
-  showUser();
-}
-
-/* LIKE (REAL MATCH SYSTEM) */
-async function like(){
-  let target = users[index];
-
-  await db.collection("likes").add({
-    from: user.name,
-    to: target.name
-  });
-
-  let snap = await db.collection("likes")
-    .where("from","==",target.name)
-    .where("to","==",user.name)
-    .get();
-
-  if(!snap.empty){
-    alert("💘 Match with " + target.name);
-    matchUser = target;
-    show("chatBox");
-    listenChat();
-  } else {
-    alert("Like sent ❤️");
-    next();
-  }
-}
-
-/* NEXT */
-function next(){
-  index++;
-  if(index >= users.length) index = 0;
-  showUser();
-}
-
-/* SEND MESSAGE */
-function sendMsg(){
-  if(!msg.value || !matchUser) return;
-
-  db.collection("messages").add({
-    from:user.name,
-    to:matchUser.name,
-    text:msg.value,
-    time:Date.now()
-  });
-
-  msg.value="";
-  autoReply();
-}
-
-/* AUTO REPLY */
-function autoReply(){
-  if(!matchUser) return;
-
-  let replies=["Hi 😊","Kya kar rahe ho?","Nice 💕","Busy thi","Reply late karti ho 😅"];
-
-  let r=replies[Math.floor(Math.random()*replies.length)];
-
-  setTimeout(()=>{
-    db.collection("messages").add({
-      from:matchUser.name,
-      to:user.name,
-      text:r,
-      time:Date.now()
-    });
-  },2000 + Math.random()*3000);
-}
-
-/* CHAT LISTENER */
-function listenChat(){
-  db.collection("messages")
-  .orderBy("time")
-  .onSnapshot(snap=>{
-    chat.innerHTML="";
-
-    snap.forEach(doc=>{
-      let m = doc.data();
-
-      if(
-        (m.from === user.name && m.to === matchUser.name) ||
-        (m.from === matchUser.name && m.to === user.name)
-      ){
-        chat.innerHTML += `<p><b>${m.from}:</b> ${m.text}</p>`;
-      }
-    });
-  });
-}
-
-/* INIT */
-loadUsers();
-</script>
-
-</body>
-</html>
+  return "LIKED";
+};
