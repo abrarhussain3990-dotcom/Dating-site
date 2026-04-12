@@ -1,320 +1,171 @@
+
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Final Dating App</title>
+  <title>Dating App Final</title>
   <style>
-    body{
-      font-family:Arial;
-      background:#0a0a0a;
-      color:white;
-      text-align:center;
-    }
-
-    #stack{
-      position:relative;
-      width:340px;
-      height:420px;
-      margin:20px auto;
-    }
-
-    .card{
-      position:absolute;
-      width:100%;
-      height:100%;
-      background:#1e1e1e;
-      border-radius:20px;
-      padding:20px;
-      transition:0.3s;
-      touch-action:none;
-    }
-
-    img{
-      width:130px;
-      height:130px;
-      border-radius:50%;
-      object-fit:cover;
-    }
-
-    input,select{
-      width:90%;
-      padding:10px;
-      margin:6px;
-      border-radius:10px;
-    }
-
-    button{
-      padding:10px;
-      margin:5px;
-      border-radius:10px;
-    }
-
-    #chat{
-      height:200px;
-      overflow:auto;
-      background:#000;
-      padding:10px;
-      text-align:left;
-      border-radius:10px;
-    }
-
-    .left{ transform:translateX(-200px) rotate(-20deg); opacity:0; }
-    .right{ transform:translateX(200px) rotate(20deg); opacity:0; }
+    body{font-family:Arial;background:#0a0a0a;color:white;text-align:center;}
+    .nav{position:fixed;bottom:0;width:100%;display:flex;justify-content:space-around;background:#111;padding:10px;}
+    .box{display:none;}
+    .active{display:block;}
+    img{width:120px;height:120px;border-radius:50%;}
+    #chat{height:200px;overflow:auto;background:#000;}
   </style>
 </head>
 <body>
 
-<h2>💘 FINAL PRO DATING APP</h2>
+<h2>💘 Dating App</h2>
+
+<!-- MATCH -->
+<div id="match" class="box active">
+  <h3 id="uName"></h3>
+  <img id="uImg"><p id="uInfo"></p>
+  <button onclick="like()">❤️ Like</button>
+  <button onclick="next()">❌ Skip</button>
+</div>
 
 <!-- PROFILE -->
-<div class="card" id="profileBox">
-  <h3>Create Profile</h3>
-  <input id="name" placeholder="Name">
-  <input id="age" placeholder="Age">
-  <select id="gender">
-    <option>Male</option>
-    <option>Female</option>
-  </select>
-  <input id="photo" placeholder="Photo URL">
-  <button onclick="start()">Start</button>
+<div id="profile" class="box">
+  <h3>Profile</h3>
+  <input id="name" placeholder="Name"><br>
+  <input type="file" id="file"><br><br>
+  <button onclick="saveProfile()">Save</button>
 </div>
-
-<!-- STACK -->
-<div id="stack" style="display:none;"></div>
 
 <!-- CHAT -->
-<div class="card" id="chatBox" style="display:none;">
-  <h3>💬 Chat</h3>
-
+<div id="chatBox" class="box">
+  <h3>Chat</h3>
   <div id="chat"></div>
-
-  <input id="msg" placeholder="Message">
+  <input id="msg">
   <button onclick="sendMsg()">Send</button>
-
-  <br><br>
-
-  <input id="imgUrl" placeholder="Image URL">
-  <button onclick="sendImage()">📷</button>
-
-  <br><br>
-
-  <button onclick="voice()">🎤 Voice</button>
 </div>
 
-<!-- FIREBASE -->
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js"></script>
+<!-- NAV -->
+<div class="nav">
+  <button onclick="show('match')">Match</button>
+  <button onclick="show('profile')">Profile</button>
+  <button onclick="show('chatBox')">Chat</button>
+</div>
+
+<!-- FIREBASE (COMPAT VERSION) -->
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
 
 <script>
 const firebaseConfig = {
-  apiKey:"YOUR_API_KEY",
-  projectId:"YOUR_PROJECT_ID"
+  apiKey: "AIzaSyBGOFD_ukCDkeg5FPf8z_nP7yAzCZXCV7o",
+  authDomain: "dating-app-21c55.firebaseapp.com",
+  projectId: "dating-app-21c55",
+  storageBucket: "dating-app-21c55.firebasestorage.app",
+  messagingSenderId: "101828106221",
+  appId: "1:101828106221:web:eeceae2518d4739879f9e4"
 };
 
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
-let user={};
-let users=[];
-let index=0;
-let currentMatch=null;
+let user={}, users=[], i=0, matchUser=null, imgData="";
 
-/* ---------------- PROFILE ---------------- */
-async function start(){
-  user={
-    name:name.value,
-    age:age.value,
-    gender:gender.value,
-    photo:photo.value,
-    online:true
-  };
+/* NAV */
+function show(id){
+  document.querySelectorAll(".box").forEach(b=>b.classList.remove("active"));
+  document.getElementById(id).classList.add("active");
+}
 
+/* IMAGE */
+file.onchange=e=>{
+  let reader=new FileReader();
+  reader.onload=()=>imgData=reader.result;
+  reader.readAsDataURL(e.target.files[0]);
+};
+
+/* SAVE PROFILE */
+async function saveProfile(){
+  user={name:name.value,photo:imgData};
   await db.collection("users").add(user);
-
-  profileBox.style.display="none";
-  stack.style.display="block";
-
+  alert("Profile Saved!");
   loadUsers();
 }
 
-/* ---------------- LOAD ---------------- */
+/* LOAD USERS + FAKE */
 async function loadUsers(){
-  let snap = await db.collection("users").get();
-  users = snap.docs.map(d=>d.data());
+  let snap=await db.collection("users").get();
+  users=snap.docs.map(d=>d.data());
 
-  renderStack();
-}
-
-/* ---------------- STACK ---------------- */
-function renderStack(){
-  stack.innerHTML="";
-
-  for(let i=users.length-1;i>=0;i--){
-    let u=users[i];
-
-    let div=document.createElement("div");
-    div.className="card";
-    div.style.zIndex=users.length-i;
-
-    div.innerHTML=`
-      <h3>${u.name}</h3>
-      <img src="${u.photo}">
-      <p>${u.age} | ${u.gender}</p>
-      <button onclick="like(${i})">❤️</button>
-      <button onclick="skip(${i})">❌</button>
-    `;
-
-    enableDrag(div,i);
-
-    stack.appendChild(div);
-  }
-}
-
-/* ---------------- DRAG SWIPE ---------------- */
-function enableDrag(card,i){
-  let startX=0;
-
-  card.onmousedown=e=>{
-    startX=e.clientX;
-
-    document.onmouseup=e=>{
-      let diff=e.clientX-startX;
-
-      if(diff>80) swipe("like",i,card);
-      else if(diff<-80) swipe("skip",i,card);
-
-      document.onmouseup=null;
-    };
-  };
-}
-
-/* ---------------- SWIPE ---------------- */
-async function swipe(type,i,card){
-  if(type==="like"){
-    card.classList.add("right");
-
-    let target=users[i];
-
-    await db.collection("likes").add({
-      from:user.name,
-      to:target.name
-    });
-
-    checkMatch(target);
-  } else {
-    card.classList.add("left");
+  if(users.length<3){
+    users.push(
+      {name:"Ayesha",photo:"https://randomuser.me/api/portraits/women/1.jpg"},
+      {name:"Sara",photo:"https://randomuser.me/api/portraits/women/2.jpg"},
+      {name:"Hina",photo:"https://randomuser.me/api/portraits/women/3.jpg"}
+    );
   }
 
-  setTimeout(()=>next(),300);
+  showUser();
 }
 
-/* BUTTONS */
-function like(i){ swipe("like",i,stack.children[stack.children.length-1-i]); }
-function skip(i){ swipe("skip",i,stack.children[stack.children.length-1-i]); }
+/* SHOW USER */
+function showUser(){
+  let u=users[i];
+  if(!u) return;
+  uName.innerText=u.name;
+  uImg.src=u.photo;
+  uInfo.innerText="Tap Like to Match";
+}
 
 /* NEXT */
 function next(){
-  index++;
-  if(index>=users.length) index=0;
-  renderStack();
+  i++; if(i>=users.length) i=0;
+  showUser();
 }
 
-/* ---------------- MATCH ---------------- */
-async function checkMatch(target){
-  let snap=await db.collection("likes")
-    .where("from","==",target.name)
-    .where("to","==",user.name)
-    .get();
-
-  if(!snap.empty){
-    alert("💘 MATCH!");
-
-    currentMatch=target;
-    chatBox.style.display="block";
-
-    listenChat();
-  }
+/* LIKE + MATCH */
+function like(){
+  matchUser=users[i];
+  alert("💘 Match with "+matchUser.name);
+  show("chatBox");
+  listenChat();
 }
 
-/* ---------------- CHAT ---------------- */
+/* SEND MSG */
 function sendMsg(){
   db.collection("messages").add({
     from:user.name,
-    to:currentMatch.name,
+    to:matchUser.name,
     text:msg.value,
-    type:"text",
     time:Date.now()
   });
 
   chat.innerHTML+=`<p><b>You:</b> ${msg.value}</p>`;
   msg.value="";
+  autoReply();
 }
 
-/* IMAGE */
-function sendImage(){
-  db.collection("messages").add({
-    from:user.name,
-    to:currentMatch.name,
-    text:imgUrl.value,
-    type:"image",
-    time:Date.now()
-  });
+/* AUTO REPLY */
+function autoReply(){
+  let replies=["Hi 😊","Kya kar rahe ho?","Nice to meet you 💕","Busy thi"];
+  let r=replies[Math.floor(Math.random()*replies.length)];
 
-  chat.innerHTML+=`<p><b>You:</b> 📷 image</p>`;
-  imgUrl.value="";
+  setTimeout(()=>{
+    db.collection("messages").add({
+      from:matchUser.name,
+      to:user.name,
+      text:r,
+      time:Date.now()
+    });
+  },2000);
 }
 
-/* LIVE CHAT */
+/* LISTEN CHAT */
 function listenChat(){
-  db.collection("messages")
-  .orderBy("time")
+  db.collection("messages").orderBy("time")
   .onSnapshot(snap=>{
     chat.innerHTML="";
-
-    snap.forEach(doc=>{
-      let m=doc.data();
-
-      if(m.from===user.name||m.to===user.name){
-
-        if(m.type==="image"){
-          chat.innerHTML+=`<p><b>${m.from}:</b><br><img src="${m.text}" width="120"></p>`;
-        } else {
-          chat.innerHTML+=`<p><b>${m.from}:</b> ${m.text}</p>`;
-        }
+    snap.forEach(d=>{
+      let m=d.data();
+      if(m.from==user.name||m.to==user.name){
+        chat.innerHTML+=`<p><b>${m.from}:</b> ${m.text}</p>`;
       }
     });
-  });
-}
-
-/* ---------------- VOICE ---------------- */
-let recorder;
-let chunks=[];
-
-function voice(){
-  navigator.mediaDevices.getUserMedia({audio:true})
-  .then(stream=>{
-    recorder=new MediaRecorder(stream);
-    recorder.start();
-
-    recorder.ondataavailable=e=>chunks.push(e.data);
-
-    recorder.onstop=()=>{
-      let blob=new Blob(chunks);
-      chunks=[];
-
-      let url=URL.createObjectURL(blob);
-
-      db.collection("messages").add({
-        from:user.name,
-        to:currentMatch.name,
-        text:url,
-        type:"audio",
-        time:Date.now()
-      });
-
-      chat.innerHTML+=`<p><b>You:</b> 🎤 voice</p>`;
-    };
-
-    setTimeout(()=>recorder.stop(),3000);
   });
 }
 </script>
