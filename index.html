@@ -1,14 +1,14 @@
+
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Dating App GOD MODE 🚀</title>
+  <title>Dating App FIXED ❤️</title>
 
   <style>
     body { font-family: Arial; text-align: center; background: #f2f2f2; }
-    input, button { padding: 10px; margin: 5px; }
+    input, button { padding: 10px; margin: 5px; width: 80%; }
     .card { background: white; padding: 20px; margin: 20px; border-radius: 10px; }
     .hidden { display: none; }
-    img { border-radius: 10px; }
   </style>
 </head>
 
@@ -20,36 +20,25 @@
   <input id="name" placeholder="Name"><br>
   <input id="photo" placeholder="Photo URL"><br>
   <input id="email" placeholder="Email"><br>
-  <input id="password" type="password"><br>
+  <input id="password" type="password" placeholder="Password"><br>
   <button onclick="signup()">Signup</button>
   <button onclick="login()">Login</button>
 </div>
 
 <div id="app" class="hidden">
-
-  <h3 id="coins">💰 Coins: 100</h3>
-  <button onclick="dailyReward()">🎁 Daily Reward</button>
-  <button onclick="editProfile()">✏️ Edit Profile</button>
-
   <div class="card" id="card"></div>
 
   <button onclick="passUser()">❌</button>
-  <button onclick="likeUser()">❤️ (-5)</button>
+  <button onclick="likeUser()">❤️</button>
 
   <h3>Matches</h3>
   <div id="matches"></div>
 
   <div id="chatBox" class="hidden">
-    <input id="msg">
+    <input id="msg" placeholder="Message">
     <button onclick="sendMsg()">Send</button>
     <div id="chat"></div>
   </div>
-
-  <div id="admin" class="hidden">
-    <h3>Admin Panel 👑</h3>
-    <button onclick="addFake()">Add Fake Girl</button>
-  </div>
-
 </div>
 
 <script type="module">
@@ -62,7 +51,7 @@ import { getFirestore, collection, addDoc, getDocs, doc, setDoc, onSnapshot }
 from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const app = initializeApp({
-  apiKey: "AIzaSyBGO...",
+  apiKey: "AIzaSyBGOFD_ukCDkeg5FPf8z_nP7yAzCZXCV7o",
   authDomain: "dating-app-21c55.firebaseapp.com",
   projectId: "dating-app-21c55"
 });
@@ -70,118 +59,145 @@ const app = initializeApp({
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-let currentUser, users=[], index=0, chatUser, coins=100;
+let currentUser, users = [], index = 0, chatUser;
 
-// SIGNUP
-window.signup = ()=>{
-  createUserWithEmailAndPassword(auth, val("email"), val("password"))
-  .then(u=>{
-    currentUser=u.user;
+// 🔥 SIGNUP FIXED
+window.signup = async () => {
+  const name = val("name");
+  const email = val("email");
+  const pass = val("password");
+  const photo = val("photo");
 
-    navigator.geolocation.getCurrentPosition(async pos=>{
-      await setDoc(doc(db,"users",currentUser.uid),{
-        name:val("name"),
-        photo:val("photo"),
-        lat:pos.coords.latitude,
-        lng:pos.coords.longitude,
-        coins:100,
-        online:true
-      });
-      start();
+  if(!name || !email || !pass){
+    alert("Fill all fields!");
+    return;
+  }
+
+  if(pass.length < 6){
+    alert("Password must be 6+ characters");
+    return;
+  }
+
+  try {
+    const u = await createUserWithEmailAndPassword(auth, email, pass);
+    currentUser = u.user;
+
+    await setDoc(doc(db, "users", currentUser.uid), {
+      name,
+      photo,
+      email
     });
-  });
-};
 
-// LOGIN
-window.login = ()=>{
-  signInWithEmailAndPassword(auth, val("email"), val("password"))
-  .then(u=>{
-    currentUser=u.user;
     start();
-  });
+  } catch(e){
+    alert(e.message);
+  }
 };
 
-function val(id){return document.getElementById(id).value;}
+// 🔥 LOGIN FIXED
+window.login = async () => {
+  try {
+    const u = await signInWithEmailAndPassword(auth, val("email"), val("password"));
+    currentUser = u.user;
+    start();
+  } catch(e){
+    alert(e.message);
+  }
+};
+
+function val(id){ return document.getElementById(id).value; }
 
 // START
 async function start(){
   authDiv(false);
 
-  const snap=await getDocs(collection(db,"users"));
-  users=[];
+  const snap = await getDocs(collection(db, "users"));
+  users = [];
 
   snap.forEach(d=>{
-    if(d.id!==currentUser.uid) users.push({id:d.id,...d.data()});
+    if(d.id !== currentUser.uid){
+      users.push({id:d.id,...d.data()});
+    }
   });
 
+  // FAKE USERS 😏
   users.push(
     {id:"fake1",name:"Ayesha ❤️",photo:"https://i.pravatar.cc/150?img=5",fake:true},
     {id:"fake2",name:"Sara 😘",photo:"https://i.pravatar.cc/150?img=6",fake:true}
   );
 
+  index = 0;
   showUser();
   loadMatches();
 }
 
 // SHOW USER
 function showUser(){
-  if(index>=users.length){card.innerHTML="No users";return;}
-  const u=users[index];
-  card.innerHTML=`<img src="${u.photo}" width="120"><h3>${u.name}</h3>`;
-}
-
-// LIKE
-window.likeUser=async ()=>{
-  if(coins<5){alert("No coins");return;}
-  coins-=5;
-  coinsUI();
-
-  const t=users[index];
-  let match=Math.random()>0.5;
-  if(t.fake) match=true;
-
-  if(match){
-    alert("Match!");
-    await addDoc(collection(db,"matches"),{
-      users:[currentUser.uid,t.id],
-      names:[val("name"),t.name]
-    });
+  if(index>=users.length){
+    card.innerHTML="No users 😢";
+    return;
   }
 
-  index++; showUser();
+  const u = users[index];
+  card.innerHTML = `<img src="${u.photo}" width="100"><h3>${u.name}</h3>`;
+}
+
+// LIKE (RANDOM MATCH)
+window.likeUser = async ()=>{
+  const target = users[index];
+
+  let match = Math.random() > 0.5;
+  if(target.fake) match = true;
+
+  if(match){
+    alert("🔥 Match!");
+
+    await addDoc(collection(db,"matches"),{
+      users:[currentUser.uid,target.id],
+      names:[val("name"),target.name]
+    });
+
+    loadMatches();
+  }
+
+  index++;
+  showUser();
 };
 
 // PASS
-window.passUser=()=>{index++;showUser();};
+window.passUser = ()=>{ index++; showUser(); };
 
 // MATCHES
 async function loadMatches(){
-  const snap=await getDocs(collection(db,"matches"));
+  const snap = await getDocs(collection(db,"matches"));
   matches.innerHTML="";
 
   snap.forEach(d=>{
-    const m=d.data();
-    if(m.users.includes(currentUser.uid)){
-      const other=m.users.find(u=>u!==currentUser.uid);
-      const name=m.names.find(n=>n!==val("name"));
+    const m = d.data();
 
-      const b=document.createElement("button");
-      b.innerText="Chat "+name;
-      b.onclick=()=>openChat(other);
-      matches.appendChild(b);
+    if(m.users.includes(currentUser.uid)){
+      const other = m.users.find(u=>u!==currentUser.uid);
+      const name = m.names.find(n=>n!==val("name"));
+
+      const btn=document.createElement("button");
+      btn.innerText="Chat "+name;
+      btn.onclick=()=>openChat(other);
+
+      matches.appendChild(btn);
     }
   });
 }
 
 // CHAT
 function openChat(uid){
-  chatUser=uid;
+  chatUser = uid;
   chatBox.classList.remove("hidden");
 
   onSnapshot(collection(db,"messages"),snap=>{
     chat.innerHTML="";
     snap.forEach(d=>{
-      const m=d.data();
+      const m = d.data();
+
       if((m.from===currentUser.uid && m.to===uid)||(m.from===uid && m.to===currentUser.uid)){
         const p=document.createElement("p");
         p.innerText=m.text;
@@ -192,49 +208,27 @@ function openChat(uid){
 }
 
 // SEND
-window.sendMsg=async ()=>{
-  const text=val("msg");
+window.sendMsg = async ()=>{
+  const text = val("msg");
+
   await addDoc(collection(db,"messages"),{
-    from:currentUser.uid,to:chatUser,text
+    from:currentUser.uid,
+    to:chatUser,
+    text
   });
 
-  alert("Sent 🔔");
-
-  if(chatUser.includes("fake")){
+  // FAKE REPLY 😏
+  if(chatUser.includes("fake") && Math.random()>0.5){
     setTimeout(()=>{
       addDoc(collection(db,"messages"),{
-        from:chatUser,to:currentUser.uid,text:"Hi 😏"
+        from:chatUser,
+        to:currentUser.uid,
+        text:"Hello 😏"
       });
     },2000);
   }
 
   msg.value="";
-};
-
-// COINS
-function coinsUI(){
-  document.getElementById("coins").innerText="💰 Coins: "+coins;
-}
-
-// DAILY
-window.dailyReward=()=>{
-  coins+=20;
-  coinsUI();
-  alert("Daily reward +20 💰");
-};
-
-// EDIT
-window.editProfile=async ()=>{
-  const n=prompt("Name");
-  const p=prompt("Photo URL");
-
-  await setDoc(doc(db,"users",currentUser.uid),{name:n,photo:p},{merge:true});
-  alert("Updated");
-};
-
-// ADMIN
-window.addFake=()=>{
-  users.push({id:"fake"+Math.random(),name:"New Girl 😘",photo:"https://i.pravatar.cc/150",fake:true});
 };
 
 // UI
