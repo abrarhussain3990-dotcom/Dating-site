@@ -1,229 +1,152 @@
+
 <!DOCTYPE html>
 <html>
 <head>
   <title>Dating App</title>
-
-  <!-- Firebase -->
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js"></script>
 </head>
-
 <body>
 
-<h2>Login</h2>
-<input id="email" placeholder="Email"><br><br>
-<input id="password" type="password" placeholder="Password"><br><br>
+<h2>Login / Signup</h2>
+<input type="email" id="email" placeholder="Email"><br><br>
+<input type="password" id="password" placeholder="Password"><br><br>
 <button onclick="signup()">Signup</button>
 <button onclick="login()">Login</button>
 
 <hr>
 
-<h2>Profile (Image URL)</h2>
-<input id="imgUrl" placeholder="Paste image URL">
-<button onclick="saveProfile()">Save Profile</button>
-
-<hr>
-
-<h2>Discover</h2>
-<div id="card"></div>
-<button onclick="like()">❤️ Like</button>
-<button onclick="skip()">❌ Skip</button>
-
-<hr>
-
-<h2>Matches</h2>
-<div id="matches"></div>
+<h2>Users</h2>
+<div id="users"></div>
 
 <hr>
 
 <h2>Chat</h2>
-<div id="chatBox"></div>
-<input id="msgInput" placeholder="Type message">
-<button onclick="sendMsg()">Send</button>
+<input id="message" placeholder="Type message">
+<button onclick="sendMessage()">Send</button>
+<div id="chat"></div>
 
-<script>
+<script type="module">
 
-// 🔥 PASTE YOUR FIREBASE CONFIG HERE
+// Firebase import
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword } 
+from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+import { getFirestore, collection, addDoc, getDocs, doc, setDoc, onSnapshot } 
+from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+// Config
 const firebaseConfig = {
-  apiKey: "YOUR_KEY",
-  authDomain: "YOUR_PROJECT.firebaseapp.com",
-  projectId: "YOUR_PROJECT",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyBGOFD_ukCDkeg5FPf8z_nP7yAzCZXCV7o",
+  authDomain: "dating-app-21c55.firebaseapp.com",
+  projectId: "dating-app-21c55",
+  storageBucket: "dating-app-21c55.firebasestorage.app",
+  messagingSenderId: "101828106221",
+  appId: "1:101828106221:web:107966bcc50abe4579f9e4"
 };
 
-firebase.initializeApp(firebaseConfig);
+// Init
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
 
-const auth = firebase.auth();
-const db = firebase.firestore();
-
-let currentUser;
-let usersList = [];
-let currentIndex = 0;
-let currentProfile = null;
+let currentUser = null;
 let currentChatUser = null;
 
-// SIGNUP
-function signup(){
-  auth.createUserWithEmailAndPassword(email.value, password.value)
-  .then(res=>{
-    currentUser = res.user;
-    alert("Signup success");
-  });
-}
+// Signup
+window.signup = async () => {
+  const email = document.getElementById("email").value;
+  const password = document.getElementById("password").value;
 
-// LOGIN
-function login(){
-  auth.signInWithEmailAndPassword(email.value, password.value)
-  .then(res=>{
-    currentUser = res.user;
-    alert("Login success");
-    loadUsers();
-    loadMatches();
-  });
-}
+  const userCred = await createUserWithEmailAndPassword(auth, email, password);
+  currentUser = userCred.user;
 
-// SAVE PROFILE
-function saveProfile(){
-  db.collection("users").doc(currentUser.uid).set({
-    uid: currentUser.uid,
-    image: imgUrl.value
-  });
-  alert("Profile saved");
-}
-
-// LOAD USERS
-function loadUsers(){
-  db.collection("users").get().then(snapshot=>{
-    usersList = [];
-
-    snapshot.forEach(doc=>{
-      let data = doc.data();
-      if(data.uid !== currentUser.uid){
-        usersList.push(data);
-      }
-    });
-
-    showUser();
-  });
-}
-
-// SHOW USER
-function showUser(){
-  if(usersList.length === 0){
-    card.innerHTML = "No users";
-    return;
-  }
-
-  currentProfile = usersList[currentIndex];
-
-  card.innerHTML = `
-    <img src="${currentProfile.image}" width="200">
-    <p>${currentProfile.uid}</p>
-  `;
-}
-
-// LIKE
-function like(){
-  db.collection("likes").add({
-    from: currentUser.uid,
-    to: currentProfile.uid
+  await setDoc(doc(db, "users", currentUser.uid), {
+    email: email
   });
 
-  checkMatch(currentProfile.uid);
-  nextUser();
-}
+  alert("Signup success");
+  loadUsers();
+};
 
-// SKIP
-function skip(){
-  nextUser();
-}
+// Login
+window.login = async () => {
+  const email = document.getElementById("email").value;
+  const password = document.getElementById("password").value;
 
-// NEXT USER
-function nextUser(){
-  currentIndex++;
-  if(currentIndex >= usersList.length){
-    currentIndex = 0;
-  }
-  showUser();
-}
+  const userCred = await signInWithEmailAndPassword(auth, email, password);
+  currentUser = userCred.user;
 
-// MATCH CHECK
-function checkMatch(otherId){
-  db.collection("likes")
-  .where("from","==",otherId)
-  .where("to","==",currentUser.uid)
-  .get()
-  .then(res=>{
-    if(!res.empty){
-      alert("🔥 Match!");
-      db.collection("matches").add({
-        users: [currentUser.uid, otherId]
-      });
-      loadMatches();
+  alert("Login success");
+  loadUsers();
+};
+
+// Load Users (Swipe style)
+async function loadUsers() {
+  const querySnapshot = await getDocs(collection(db, "users"));
+  const usersDiv = document.getElementById("users");
+  usersDiv.innerHTML = "";
+
+  querySnapshot.forEach((docSnap) => {
+    if (docSnap.id !== currentUser.uid) {
+      const user = docSnap.data();
+
+      const div = document.createElement("div");
+      div.innerHTML = `
+        <p>${user.email}</p>
+        <button onclick="likeUser('${docSnap.id}')">❤️ Like</button>
+        <button onclick="startChat('${docSnap.id}')">💬 Chat</button>
+        <hr>
+      `;
+      usersDiv.appendChild(div);
     }
   });
 }
 
-// LOAD MATCHES
-function loadMatches(){
-  db.collection("matches").get().then(snapshot=>{
-    matches.innerHTML = "";
-
-    snapshot.forEach(doc=>{
-      let data = doc.data();
-
-      if(data.users.includes(currentUser.uid)){
-        let other = data.users.find(u => u !== currentUser.uid);
-
-        matches.innerHTML += `
-          <p onclick="openChat('${other}')">
-            💬 Chat with ${other}
-          </p>
-        `;
-      }
-    });
+// Like system
+window.likeUser = async (userId) => {
+  await addDoc(collection(db, "likes"), {
+    from: currentUser.uid,
+    to: userId
   });
-}
 
-// OPEN CHAT
-function openChat(otherId){
-  currentChatUser = otherId;
+  alert("Liked ❤️");
+};
+
+// Start Chat
+window.startChat = (userId) => {
+  currentChatUser = userId;
   loadMessages();
-}
+};
 
-// SEND MESSAGE
-function sendMsg(){
-  let msg = msgInput.value;
-  if(!msg) return;
+// Send Message
+window.sendMessage = async () => {
+  const msg = document.getElementById("message").value;
 
-  db.collection("messages").add({
+  await addDoc(collection(db, "messages"), {
     from: currentUser.uid,
     to: currentChatUser,
-    text: msg,
-    time: Date.now()
+    text: msg
   });
 
-  msgInput.value = "";
-}
+  document.getElementById("message").value = "";
+};
 
-// LOAD MESSAGES
-function loadMessages(){
-  db.collection("messages")
-  .orderBy("time")
-  .onSnapshot(snapshot=>{
-    chatBox.innerHTML = "";
+// Load Messages (Realtime)
+function loadMessages() {
+  onSnapshot(collection(db, "messages"), (snapshot) => {
+    const chatDiv = document.getElementById("chat");
+    chatDiv.innerHTML = "";
 
-    snapshot.forEach(doc=>{
-      let d = doc.data();
+    snapshot.forEach((docSnap) => {
+      const msg = docSnap.data();
 
-      if(
-        (d.from === currentUser.uid && d.to === currentChatUser) ||
-        (d.from === currentChatUser && d.to === currentUser.uid)
-      ){
-        chatBox.innerHTML += `
-          <p><b>${d.from === currentUser.uid ? "Me" : "Them"}:</b> ${d.text}</p>
-        `;
+      if (
+        (msg.from === currentUser.uid && msg.to === currentChatUser) ||
+        (msg.from === currentChatUser && msg.to === currentUser.uid)
+      ) {
+        const p = document.createElement("p");
+        p.innerText = msg.text;
+        chatDiv.appendChild(p);
       }
     });
   });
