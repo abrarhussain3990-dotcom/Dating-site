@@ -81,9 +81,12 @@ file.onchange = e=>{
 
 /* SAVE PROFILE */
 async function saveProfile(){
-  if(!name.value){ alert("Name daalo"); return; }
 
-  user = { name:name.value, photo:imgData };
+if(!document.getElementById("name").value.trim())
+  user = { 
+  name: document.getElementById("name").value.trim(), 
+  photo: imgData 
+};
 
   await db.collection("users").add(user);
 
