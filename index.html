@@ -2,14 +2,15 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Dating App Final</title>
+  <title>Dating App</title>
   <style>
-    body{font-family:Arial;background:#0a0a0a;color:white;text-align:center;}
-    .nav{position:fixed;bottom:0;width:100%;display:flex;justify-content:space-around;background:#111;padding:10px;}
-    .box{display:none;}
+    body{font-family:Arial;background:#111;color:white;text-align:center;}
+    .nav{position:fixed;bottom:0;width:100%;display:flex;justify-content:space-around;background:#000;padding:10px;}
+    .screen{display:none;}
     .active{display:block;}
-    img{width:120px;height:120px;border-radius:50%;}
-    #chat{height:200px;overflow:auto;background:#000;}
+    img{width:150px;height:150px;border-radius:50%;}
+    #chat{height:200px;overflow:auto;background:#000;margin:10px;padding:10px;}
+    input,button{padding:10px;margin:5px;border-radius:10px;}
   </style>
 </head>
 <body>
@@ -17,23 +18,23 @@
 <h2>💘 Dating App</h2>
 
 <!-- MATCH -->
-<div id="match" class="box active">
-  <h3 id="uName"></h3>
+<div id="match" class="screen active">
+  <h3 id="uName">No users</h3>
   <img id="uImg"><p id="uInfo"></p>
   <button onclick="like()">❤️ Like</button>
-  <button onclick="next()">❌ Skip</button>
+  <button onclick="skip()">❌ Skip</button>
 </div>
 
 <!-- PROFILE -->
-<div id="profile" class="box">
-  <h3>Profile</h3>
+<div id="profile" class="screen">
+  <h3>Create Profile</h3>
   <input id="name" placeholder="Name"><br>
-  <input type="file" id="file"><br><br>
+  <input type="file" id="file"><br>
   <button onclick="saveProfile()">Save</button>
 </div>
 
 <!-- CHAT -->
-<div id="chatBox" class="box">
+<div id="chatBox" class="screen">
   <h3>Chat</h3>
   <div id="chat"></div>
   <input id="msg">
@@ -47,87 +48,101 @@
   <button onclick="show('chatBox')">Chat</button>
 </div>
 
-<!-- FIREBASE (COMPAT VERSION) -->
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
 
 <script>
 const firebaseConfig = {
   apiKey: "AIzaSyBGOFD_ukCDkeg5FPf8z_nP7yAzCZXCV7o",
-  authDomain: "dating-app-21c55.firebaseapp.com",
-  projectId: "dating-app-21c55",
-  storageBucket: "dating-app-21c55.firebasestorage.app",
-  messagingSenderId: "101828106221",
-  appId: "1:101828106221:web:eeceae2518d4739879f9e4"
+  projectId: "dating-app-21c55"
 };
 
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
-let user={}, users=[], i=0, matchUser=null, imgData="";
+let user = {};
+let users = [];
+let index = 0;
+let matchUser = null;
+let imgData = "";
 
 /* NAV */
 function show(id){
-  document.querySelectorAll(".box").forEach(b=>b.classList.remove("active"));
+  document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
   document.getElementById(id).classList.add("active");
 }
 
 /* IMAGE */
-file.onchange=e=>{
-  let reader=new FileReader();
-  reader.onload=()=>imgData=reader.result;
+file.onchange = e=>{
+  let reader = new FileReader();
+  reader.onload = ()=> imgData = reader.result;
   reader.readAsDataURL(e.target.files[0]);
 };
 
 /* SAVE PROFILE */
 async function saveProfile(){
-  user={name:name.value,photo:imgData};
+  if(!name.value){ alert("Name daalo"); return; }
+
+  user = { name:name.value, photo:imgData };
+
   await db.collection("users").add(user);
+
   alert("Profile Saved!");
   loadUsers();
 }
 
-/* LOAD USERS + FAKE */
+/* LOAD USERS */
 async function loadUsers(){
-  let snap=await db.collection("users").get();
-  users=snap.docs.map(d=>d.data());
+  let snap = await db.collection("users").get();
+  users = snap.docs.map(d=>d.data());
 
-  if(users.length<3){
+  /* FAKE USERS ADD */
+  if(users.length < 3){
     users.push(
-      {name:"Ayesha",photo:"https://randomuser.me/api/portraits/women/1.jpg"},
-      {name:"Sara",photo:"https://randomuser.me/api/portraits/women/2.jpg"},
-      {name:"Hina",photo:"https://randomuser.me/api/portraits/women/3.jpg"}
+      {name:"Ayesha", photo:"https://randomuser.me/api/portraits/women/1.jpg"},
+      {name:"Sara", photo:"https://randomuser.me/api/portraits/women/2.jpg"},
+      {name:"Hina", photo:"https://randomuser.me/api/portraits/women/3.jpg"}
     );
   }
 
+  index = 0;
   showUser();
 }
 
 /* SHOW USER */
 function showUser(){
-  let u=users[i];
-  if(!u) return;
-  uName.innerText=u.name;
-  uImg.src=u.photo;
-  uInfo.innerText="Tap Like to Match";
+  if(users.length == 0){
+    uName.innerText="No users found";
+    return;
+  }
+
+  let u = users[index];
+  uName.innerText = u.name;
+  uImg.src = u.photo || "";
+  uInfo.innerText = "Swipe or Like";
 }
 
-/* NEXT */
-function next(){
-  i++; if(i>=users.length) i=0;
+/* SKIP */
+function skip(){
+  index++;
+  if(index >= users.length) index = 0;
   showUser();
 }
 
-/* LIKE + MATCH */
+/* LIKE */
 function like(){
-  matchUser=users[i];
-  alert("💘 Match with "+matchUser.name);
+  matchUser = users[index];
+
+  alert("💘 Match with " + matchUser.name);
+
   show("chatBox");
   listenChat();
 }
 
-/* SEND MSG */
+/* SEND MESSAGE */
 function sendMsg(){
+  if(!msg.value) return;
+
   db.collection("messages").add({
     from:user.name,
     to:matchUser.name,
@@ -135,15 +150,15 @@ function sendMsg(){
     time:Date.now()
   });
 
-  chat.innerHTML+=`<p><b>You:</b> ${msg.value}</p>`;
   msg.value="";
   autoReply();
 }
 
 /* AUTO REPLY */
 function autoReply(){
-  let replies=["Hi 😊","Kya kar rahe ho?","Nice to meet you 💕","Busy thi"];
-  let r=replies[Math.floor(Math.random()*replies.length)];
+  let replies = ["Hi 😊","Kya kar rahe ho?","Nice 💕","Busy thi"];
+
+  let r = replies[Math.floor(Math.random()*replies.length)];
 
   setTimeout(()=>{
     db.collection("messages").add({
@@ -160,14 +175,17 @@ function listenChat(){
   db.collection("messages").orderBy("time")
   .onSnapshot(snap=>{
     chat.innerHTML="";
-    snap.forEach(d=>{
-      let m=d.data();
-      if(m.from==user.name||m.to==user.name){
-        chat.innerHTML+=`<p><b>${m.from}:</b> ${m.text}</p>`;
+    snap.forEach(doc=>{
+      let m = doc.data();
+      if(m.from==user.name || m.to==user.name){
+        chat.innerHTML += `<p><b>${m.from}:</b> ${m.text}</p>`;
       }
     });
   });
 }
+
+/* INIT */
+loadUsers();
 </script>
 
 </body>
