@@ -1,12 +1,14 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Dating App</title>
+  <title>Dating App GOD MODE 🚀</title>
+
   <style>
-    body { font-family: Arial; text-align: center; background:#eee; }
-    input, button { padding:10px; margin:5px; }
-    .card { background:white; padding:20px; margin:20px; border-radius:10px; }
-    #app { display:none; }
+    body { font-family: Arial; text-align: center; background: #f2f2f2; }
+    input, button { padding: 10px; margin: 5px; }
+    .card { background: white; padding: 20px; margin: 20px; border-radius: 10px; }
+    .hidden { display: none; }
+    img { border-radius: 10px; }
   </style>
 </head>
 
@@ -15,26 +17,39 @@
 <h2>Dating App ❤️</h2>
 
 <div id="auth">
+  <input id="name" placeholder="Name"><br>
+  <input id="photo" placeholder="Photo URL"><br>
   <input id="email" placeholder="Email"><br>
-  <input id="password" type="password" placeholder="Password"><br>
+  <input id="password" type="password"><br>
   <button onclick="signup()">Signup</button>
   <button onclick="login()">Login</button>
 </div>
 
-<div id="app">
-  <div id="card" class="card"></div>
+<div id="app" class="hidden">
 
-  <button onclick="passUser()">❌ Pass</button>
-  <button onclick="likeUser()">❤️ Like</button>
+  <h3 id="coins">💰 Coins: 100</h3>
+  <button onclick="dailyReward()">🎁 Daily Reward</button>
+  <button onclick="editProfile()">✏️ Edit Profile</button>
+
+  <div class="card" id="card"></div>
+
+  <button onclick="passUser()">❌</button>
+  <button onclick="likeUser()">❤️ (-5)</button>
 
   <h3>Matches</h3>
   <div id="matches"></div>
 
-  <div id="chatBox" style="display:none;">
-    <input id="msg" placeholder="Message">
+  <div id="chatBox" class="hidden">
+    <input id="msg">
     <button onclick="sendMsg()">Send</button>
     <div id="chat"></div>
   </div>
+
+  <div id="admin" class="hidden">
+    <h3>Admin Panel 👑</h3>
+    <button onclick="addFake()">Add Fake Girl</button>
+  </div>
+
 </div>
 
 <script type="module">
@@ -46,168 +61,130 @@ from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { getFirestore, collection, addDoc, getDocs, doc, setDoc, onSnapshot }
 from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-// CONFIG
-const firebaseConfig = {
-  apiKey: "AIzaSyBGOFD_ukCDkeg5FPf8z_nP7yAzCZXCV7o",
+const app = initializeApp({
+  apiKey: "AIzaSyBGO...",
   authDomain: "dating-app-21c55.firebaseapp.com",
-  projectId: "dating-app-21c55",
-  storageBucket: "dating-app-21c55.firebasestorage.app",
-  messagingSenderId: "101828106221",
-  appId: "1:101828106221:web:107966bcc50abe4579f9e4"
-};
+  projectId: "dating-app-21c55"
+});
 
-const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-let currentUser = null;
-let users = [];
-let index = 0;
-let chatUser = null;
+let currentUser, users=[], index=0, chatUser, coins=100;
 
 // SIGNUP
-window.signup = async () => {
-  try {
-    const email = emailInput();
-    const pass = passInput();
+window.signup = ()=>{
+  createUserWithEmailAndPassword(auth, val("email"), val("password"))
+  .then(u=>{
+    currentUser=u.user;
 
-    const u = await createUserWithEmailAndPassword(auth, email, pass);
-    currentUser = u.user;
-
-    await setDoc(doc(db, "users", currentUser.uid), { email });
-
-    startApp();
-  } catch(e){
-    alert(e.message);
-  }
+    navigator.geolocation.getCurrentPosition(async pos=>{
+      await setDoc(doc(db,"users",currentUser.uid),{
+        name:val("name"),
+        photo:val("photo"),
+        lat:pos.coords.latitude,
+        lng:pos.coords.longitude,
+        coins:100,
+        online:true
+      });
+      start();
+    });
+  });
 };
 
 // LOGIN
-window.login = async () => {
-  try {
-    const email = emailInput();
-    const pass = passInput();
-
-    const u = await signInWithEmailAndPassword(auth, email, pass);
-    currentUser = u.user;
-
-    startApp();
-  } catch(e){
-    alert(e.message);
-  }
+window.login = ()=>{
+  signInWithEmailAndPassword(auth, val("email"), val("password"))
+  .then(u=>{
+    currentUser=u.user;
+    start();
+  });
 };
 
-function emailInput(){ return document.getElementById("email").value; }
-function passInput(){ return document.getElementById("password").value; }
+function val(id){return document.getElementById(id).value;}
 
 // START
-async function startApp(){
-  document.getElementById("auth").style.display="none";
-  document.getElementById("app").style.display="block";
+async function start(){
+  authDiv(false);
 
-  const snap = await getDocs(collection(db,"users"));
-  users = [];
+  const snap=await getDocs(collection(db,"users"));
+  users=[];
 
   snap.forEach(d=>{
-    if(d.id !== currentUser.uid){
-      users.push({id:d.id,...d.data()});
-    }
+    if(d.id!==currentUser.uid) users.push({id:d.id,...d.data()});
   });
 
-  index = 0;
+  users.push(
+    {id:"fake1",name:"Ayesha ❤️",photo:"https://i.pravatar.cc/150?img=5",fake:true},
+    {id:"fake2",name:"Sara 😘",photo:"https://i.pravatar.cc/150?img=6",fake:true}
+  );
+
   showUser();
   loadMatches();
 }
 
 // SHOW USER
 function showUser(){
-  const card = document.getElementById("card");
-
-  if(index >= users.length){
-    card.innerHTML = "No users found 😢";
-    return;
-  }
-
-  const u = users[index];
-  card.innerHTML = "<h3>"+u.email+"</h3>";
+  if(index>=users.length){card.innerHTML="No users";return;}
+  const u=users[index];
+  card.innerHTML=`<img src="${u.photo}" width="120"><h3>${u.name}</h3>`;
 }
 
 // LIKE
-window.likeUser = async ()=>{
-  const target = users[index];
+window.likeUser=async ()=>{
+  if(coins<5){alert("No coins");return;}
+  coins-=5;
+  coinsUI();
 
-  await addDoc(collection(db,"likes"),{
-    from: currentUser.uid,
-    to: target.id
-  });
-
-  const snap = await getDocs(collection(db,"likes"));
-  let match = false;
-
-  snap.forEach(d=>{
-    const l = d.data();
-    if(l.from === target.id && l.to === currentUser.uid){
-      match = true;
-    }
-  });
+  const t=users[index];
+  let match=Math.random()>0.5;
+  if(t.fake) match=true;
 
   if(match){
-    alert("🔥 Match!");
+    alert("Match!");
     await addDoc(collection(db,"matches"),{
-      users:[currentUser.uid,target.id]
+      users:[currentUser.uid,t.id],
+      names:[val("name"),t.name]
     });
-    loadMatches();
   }
 
-  index++;
-  showUser();
+  index++; showUser();
 };
 
 // PASS
-window.passUser = ()=>{
-  index++;
-  showUser();
-};
+window.passUser=()=>{index++;showUser();};
 
-// LOAD MATCHES
+// MATCHES
 async function loadMatches(){
-  const snap = await getDocs(collection(db,"matches"));
-  const div = document.getElementById("matches");
-  div.innerHTML = "";
+  const snap=await getDocs(collection(db,"matches"));
+  matches.innerHTML="";
 
   snap.forEach(d=>{
-    const m = d.data();
-
+    const m=d.data();
     if(m.users.includes(currentUser.uid)){
-      const other = m.users.find(u=>u!==currentUser.uid);
+      const other=m.users.find(u=>u!==currentUser.uid);
+      const name=m.names.find(n=>n!==val("name"));
 
-      const btn = document.createElement("button");
-      btn.innerText = "Chat";
-      btn.onclick = ()=>openChat(other);
-
-      div.appendChild(btn);
+      const b=document.createElement("button");
+      b.innerText="Chat "+name;
+      b.onclick=()=>openChat(other);
+      matches.appendChild(b);
     }
   });
 }
 
 // CHAT
 function openChat(uid){
-  chatUser = uid;
-  document.getElementById("chatBox").style.display="block";
+  chatUser=uid;
+  chatBox.classList.remove("hidden");
 
   onSnapshot(collection(db,"messages"),snap=>{
-    const chat = document.getElementById("chat");
     chat.innerHTML="";
-
     snap.forEach(d=>{
-      const m = d.data();
-
-      if(
-        (m.from===currentUser.uid && m.to===uid) ||
-        (m.from===uid && m.to===currentUser.uid)
-      ){
-        const p = document.createElement("p");
-        p.innerText = m.text;
+      const m=d.data();
+      if((m.from===currentUser.uid && m.to===uid)||(m.from===uid && m.to===currentUser.uid)){
+        const p=document.createElement("p");
+        p.innerText=m.text;
         chat.appendChild(p);
       }
     });
@@ -215,19 +192,56 @@ function openChat(uid){
 }
 
 // SEND
-window.sendMsg = async ()=>{
-  const text = document.getElementById("msg").value;
-
-  if(!text) return;
-
+window.sendMsg=async ()=>{
+  const text=val("msg");
   await addDoc(collection(db,"messages"),{
-    from: currentUser.uid,
-    to: chatUser,
-    text
+    from:currentUser.uid,to:chatUser,text
   });
 
-  document.getElementById("msg").value="";
+  alert("Sent 🔔");
+
+  if(chatUser.includes("fake")){
+    setTimeout(()=>{
+      addDoc(collection(db,"messages"),{
+        from:chatUser,to:currentUser.uid,text:"Hi 😏"
+      });
+    },2000);
+  }
+
+  msg.value="";
 };
+
+// COINS
+function coinsUI(){
+  document.getElementById("coins").innerText="💰 Coins: "+coins;
+}
+
+// DAILY
+window.dailyReward=()=>{
+  coins+=20;
+  coinsUI();
+  alert("Daily reward +20 💰");
+};
+
+// EDIT
+window.editProfile=async ()=>{
+  const n=prompt("Name");
+  const p=prompt("Photo URL");
+
+  await setDoc(doc(db,"users",currentUser.uid),{name:n,photo:p},{merge:true});
+  alert("Updated");
+};
+
+// ADMIN
+window.addFake=()=>{
+  users.push({id:"fake"+Math.random(),name:"New Girl 😘",photo:"https://i.pravatar.cc/150",fake:true});
+};
+
+// UI
+function authDiv(show){
+  auth.style.display=show?"block":"none";
+  app.style.display=show?"none":"block";
+}
 
 </script>
 
