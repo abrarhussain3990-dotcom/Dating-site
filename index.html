@@ -2,7 +2,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Dating App</title>
+  <title>Dating App Pro</title>
   <style>
     body{font-family:Arial;background:#111;color:white;text-align:center;}
     .nav{position:fixed;bottom:0;width:100%;display:flex;justify-content:space-around;background:#000;padding:10px;}
@@ -19,7 +19,7 @@
 
 <!-- MATCH -->
 <div id="match" class="screen active">
-  <h3 id="uName">No users</h3>
+  <h3 id="uName">Loading...</h3>
   <img id="uImg"><p id="uInfo"></p>
   <button onclick="like()">❤️ Like</button>
   <button onclick="skip()">❌ Skip</button>
@@ -81,12 +81,14 @@ file.onchange = e=>{
 
 /* SAVE PROFILE */
 async function saveProfile(){
+  let nameVal = document.getElementById("name").value.trim();
 
-if(!document.getElementById("name").value.trim())
-  user = { 
-  name: document.getElementById("name").value.trim(), 
-  photo: imgData 
-};
+  if(!nameVal){
+    alert("Name daalo");
+    return;
+  }
+
+  user = { name:nameVal, photo:imgData };
 
   await db.collection("users").add(user);
 
@@ -94,17 +96,26 @@ if(!document.getElementById("name").value.trim())
   loadUsers();
 }
 
-/* LOAD USERS */
+/* LOAD USERS (REAL + FAKE) */
 async function loadUsers(){
   let snap = await db.collection("users").get();
-  users = snap.docs.map(d=>d.data());
 
-  /* FAKE USERS ADD */
-  if(users.length < 3){
+  users = [];
+
+  snap.forEach(doc=>{
+    let u = doc.data();
+
+    if(u.name !== user.name){
+      users.push(u);
+    }
+  });
+
+  if(users.length < 5){
     users.push(
       {name:"Ayesha", photo:"https://randomuser.me/api/portraits/women/1.jpg"},
       {name:"Sara", photo:"https://randomuser.me/api/portraits/women/2.jpg"},
-      {name:"Hina", photo:"https://randomuser.me/api/portraits/women/3.jpg"}
+      {name:"Hina", photo:"https://randomuser.me/api/portraits/women/3.jpg"},
+      {name:"Zara", photo:"https://randomuser.me/api/portraits/women/4.jpg"}
     );
   }
 
@@ -115,14 +126,14 @@ async function loadUsers(){
 /* SHOW USER */
 function showUser(){
   if(users.length == 0){
-    uName.innerText="No users found";
+    uName.innerText="No users";
     return;
   }
 
   let u = users[index];
   uName.innerText = u.name;
   uImg.src = u.photo || "";
-  uInfo.innerText = "Swipe or Like";
+  uInfo.innerText = "Like or Skip";
 }
 
 /* SKIP */
@@ -132,19 +143,41 @@ function skip(){
   showUser();
 }
 
-/* LIKE */
-function like(){
-  matchUser = users[index];
+/* LIKE (REAL MATCH SYSTEM) */
+async function like(){
+  let target = users[index];
 
-  alert("💘 Match with " + matchUser.name);
+  await db.collection("likes").add({
+    from: user.name,
+    to: target.name
+  });
 
-  show("chatBox");
-  listenChat();
+  let snap = await db.collection("likes")
+    .where("from","==",target.name)
+    .where("to","==",user.name)
+    .get();
+
+  if(!snap.empty){
+    alert("💘 Match with " + target.name);
+    matchUser = target;
+    show("chatBox");
+    listenChat();
+  } else {
+    alert("Like sent ❤️");
+    next();
+  }
+}
+
+/* NEXT */
+function next(){
+  index++;
+  if(index >= users.length) index = 0;
+  showUser();
 }
 
 /* SEND MESSAGE */
 function sendMsg(){
-  if(!msg.value) return;
+  if(!msg.value || !matchUser) return;
 
   db.collection("messages").add({
     from:user.name,
@@ -159,9 +192,11 @@ function sendMsg(){
 
 /* AUTO REPLY */
 function autoReply(){
-  let replies = ["Hi 😊","Kya kar rahe ho?","Nice 💕","Busy thi"];
+  if(!matchUser) return;
 
-  let r = replies[Math.floor(Math.random()*replies.length)];
+  let replies=["Hi 😊","Kya kar rahe ho?","Nice 💕","Busy thi","Reply late karti ho 😅"];
+
+  let r=replies[Math.floor(Math.random()*replies.length)];
 
   setTimeout(()=>{
     db.collection("messages").add({
@@ -170,17 +205,23 @@ function autoReply(){
       text:r,
       time:Date.now()
     });
-  },2000);
+  },2000 + Math.random()*3000);
 }
 
-/* LISTEN CHAT */
+/* CHAT LISTENER */
 function listenChat(){
-  db.collection("messages").orderBy("time")
+  db.collection("messages")
+  .orderBy("time")
   .onSnapshot(snap=>{
     chat.innerHTML="";
+
     snap.forEach(doc=>{
       let m = doc.data();
-      if(m.from==user.name || m.to==user.name){
+
+      if(
+        (m.from === user.name && m.to === matchUser.name) ||
+        (m.from === matchUser.name && m.to === user.name)
+      ){
         chat.innerHTML += `<p><b>${m.from}:</b> ${m.text}</p>`;
       }
     });
