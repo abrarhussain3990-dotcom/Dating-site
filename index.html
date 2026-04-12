@@ -13,16 +13,22 @@
       background: white;
       padding: 15px;
       box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+      position: relative;
     }
 
     img { width:100%; border-radius:15px; }
 
-    button {
-      padding:10px;
-      border:none;
-      border-radius:20px;
-      margin:5px;
+    .online {
+      width:12px;
+      height:12px;
+      background:green;
+      border-radius:50%;
+      position:absolute;
+      top:10px;
+      right:10px;
     }
+
+    button { padding:10px; border:none; border-radius:20px; margin:5px; }
 
     .like { background: hotpink; color:white; }
     .nope { background: gray; color:white; }
@@ -48,20 +54,22 @@
 
 <input id="nameInput" placeholder="Your Name"><br><br>
 <input type="file" id="file"><br><br>
-<button onclick="createProfile()">Start</button>
 
-<!-- APP -->
+<button onclick="createProfile()">Start</button>
+<button onclick="addFakeUsers()">Add 100 Users</button>
+
 <div id="app">
   <div class="card">
+    <div id="onlineDot" class="online"></div>
     <img id="photo">
     <h3 id="name"></h3>
+    <small id="status"></small>
   </div>
 
   <button class="nope" onclick="skip()">❌</button>
   <button class="like" onclick="like()">❤️</button>
 </div>
 
-<!-- CHAT -->
 <div id="chatScreen">
   <h2>💬 Chat</h2>
   <div id="chatBox"></div>
@@ -76,11 +84,6 @@ import {
   updateDoc, arrayUnion, getDoc, onSnapshot
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-import {
-  getStorage, ref, uploadBytes, getDownloadURL
-} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
-
-// 🔥 YOUR CONFIG
 const firebaseConfig = {
   apiKey: "AIzaSyBGOFD_ukCDkeg5FPf8z_nP7yAzCZXCV7o",
   authDomain: "dating-app-21c55.firebaseapp.com",
@@ -92,7 +95,6 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
-const storage = getStorage(app);
 
 let userId = "user_" + Math.random().toString(36).slice(2);
 let users = [];
@@ -104,19 +106,42 @@ window.createProfile = async () => {
   const name = document.getElementById("nameInput").value;
   const file = document.getElementById("file").files[0];
 
-  const storageRef = ref(storage, "profiles/" + userId);
-  await uploadBytes(storageRef, file);
-  const url = await getDownloadURL(storageRef);
+  if (!name || !file) return alert("Name aur photo zaroori hai");
 
-  await setDoc(doc(db, "users", userId), {
-    uid: userId,
-    name,
-    photo: url,
-    likes: []
-  });
+  const reader = new FileReader();
+  reader.onload = async function(e) {
+    await setDoc(doc(db, "users", userId), {
+      uid: userId,
+      name,
+      photo: e.target.result,
+      likes: [],
+      online: true,
+      lastSeen: Date.now()
+    });
 
-  document.getElementById("app").style.display = "block";
-  loadUsers();
+    document.getElementById("app").style.display = "block";
+    loadUsers();
+  };
+
+  reader.readAsDataURL(file);
+};
+
+// ADD FAKE USERS
+window.addFakeUsers = async () => {
+  for (let i = 1; i <= 100; i++) {
+    await setDoc(doc(db, "users", "fake_" + i), {
+      uid: "fake_" + i,
+      name: "User " + i,
+      photo: i % 2
+        ? "https://randomuser.me/api/portraits/men/" + (i % 99) + ".jpg"
+        : "https://randomuser.me/api/portraits/women/" + (i % 99) + ".jpg",
+      likes: [],
+      online: Math.random() > 0.5,
+      lastSeen: Date.now() - Math.floor(Math.random()*10000000)
+    });
+  }
+
+  alert("100 Users Added 🔥");
 };
 
 // LOAD USERS
@@ -129,6 +154,7 @@ async function loadUsers() {
 // SHOW USER
 function showUser() {
   const u = users[index];
+
   if (!u || u.uid === userId) {
     index++;
     return showUser();
@@ -136,6 +162,18 @@ function showUser() {
 
   document.getElementById("photo").src = u.photo;
   document.getElementById("name").innerText = u.name;
+
+  const onlineDot = document.getElementById("onlineDot");
+  const status = document.getElementById("status");
+
+  if (u.online) {
+    onlineDot.style.display = "block";
+    status.innerText = "Online 🟢";
+  } else {
+    onlineDot.style.display = "none";
+    const mins = Math.floor((Date.now() - u.lastSeen)/60000);
+    status.innerText = "Last seen " + mins + " min ago";
+  }
 }
 
 // LIKE
@@ -146,13 +184,9 @@ window.like = async () => {
     likes: arrayUnion(target.uid)
   });
 
-  const snap = await getDoc(doc(db, "users", target.uid));
-
-  if (snap.exists() && snap.data().likes?.includes(userId)) {
-    alert("💖 MATCH!");
-    chatId = userId + "_" + target.uid;
-    openChat();
-  }
+  chatId = userId + "_" + target.uid;
+  alert("💖 MATCH!");
+  openChat();
 
   index++;
   showUser();
@@ -184,18 +218,25 @@ function openChat() {
   });
 }
 
-// SEND MESSAGE
+// SEND + AUTO REPLY
 window.sendMsg = async () => {
   const text = document.getElementById("msg").value;
 
   await setDoc(doc(db, "chats", chatId), {
-    messages: arrayUnion({
-      sender: userId,
-      text
-    })
+    messages: arrayUnion({ sender: userId, text })
   }, { merge: true });
 
   document.getElementById("msg").value = "";
+
+  setTimeout(async () => {
+    const replies = ["Hi 😊","How are you?","Nice 💖","Where from?","😍"];
+    const reply = replies[Math.floor(Math.random()*replies.length)];
+
+    await setDoc(doc(db, "chats", chatId), {
+      messages: arrayUnion({ sender: "bot", text: reply })
+    }, { merge: true });
+
+  }, 1500);
 };
 
 </script>
