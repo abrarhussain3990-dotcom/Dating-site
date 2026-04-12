@@ -1,13 +1,12 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Dating App Stable</title>
-
+  <title>Dating App</title>
   <style>
-    body { font-family: Arial; text-align: center; background: #f2f2f2; }
-    input, button { padding: 10px; margin: 5px; }
-    .card { background: white; padding: 20px; margin: 20px; border-radius: 10px; }
-    .hidden { display: none; }
+    body { font-family: Arial; text-align: center; background:#eee; }
+    input, button { padding:10px; margin:5px; }
+    .card { background:white; padding:20px; margin:20px; border-radius:10px; }
+    #app { display:none; }
   </style>
 </head>
 
@@ -22,9 +21,8 @@
   <button onclick="login()">Login</button>
 </div>
 
-<div id="app" class="hidden">
-
-  <div class="card" id="card"></div>
+<div id="app">
+  <div id="card" class="card"></div>
 
   <button onclick="passUser()">❌ Pass</button>
   <button onclick="likeUser()">❤️ Like</button>
@@ -32,12 +30,11 @@
   <h3>Matches</h3>
   <div id="matches"></div>
 
-  <div id="chatBox" class="hidden">
+  <div id="chatBox" style="display:none;">
     <input id="msg" placeholder="Message">
     <button onclick="sendMsg()">Send</button>
     <div id="chat"></div>
   </div>
-
 </div>
 
 <script type="module">
@@ -63,43 +60,57 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-let currentUser, users = [], index = 0, chatUser;
+let currentUser = null;
+let users = [];
+let index = 0;
+let chatUser = null;
 
-// AUTH
+// SIGNUP
 window.signup = async () => {
-  const email = val("email");
-  const pass = val("password");
+  try {
+    const email = emailInput();
+    const pass = passInput();
 
-  const u = await createUserWithEmailAndPassword(auth, email, pass);
-  currentUser = u.user;
+    const u = await createUserWithEmailAndPassword(auth, email, pass);
+    currentUser = u.user;
 
-  await setDoc(doc(db, "users", currentUser.uid), { email });
+    await setDoc(doc(db, "users", currentUser.uid), { email });
 
-  start();
+    startApp();
+  } catch(e){
+    alert(e.message);
+  }
 };
 
+// LOGIN
 window.login = async () => {
-  const email = val("email");
-  const pass = val("password");
+  try {
+    const email = emailInput();
+    const pass = passInput();
 
-  const u = await signInWithEmailAndPassword(auth, email, pass);
-  currentUser = u.user;
+    const u = await signInWithEmailAndPassword(auth, email, pass);
+    currentUser = u.user;
 
-  start();
+    startApp();
+  } catch(e){
+    alert(e.message);
+  }
 };
 
-function val(id){ return document.getElementById(id).value; }
+function emailInput(){ return document.getElementById("email").value; }
+function passInput(){ return document.getElementById("password").value; }
 
-// START APP
-async function start() {
-  authDiv(false);
+// START
+async function startApp(){
+  document.getElementById("auth").style.display="none";
+  document.getElementById("app").style.display="block";
 
-  const snap = await getDocs(collection(db, "users"));
+  const snap = await getDocs(collection(db,"users"));
   users = [];
 
-  snap.forEach(d => {
-    if (d.id !== currentUser.uid) {
-      users.push({ id: d.id, ...d.data() });
+  snap.forEach(d=>{
+    if(d.id !== currentUser.uid){
+      users.push({id:d.id,...d.data()});
     }
   });
 
@@ -109,37 +120,41 @@ async function start() {
 }
 
 // SHOW USER
-function showUser() {
-  if (index >= users.length) {
-    card.innerHTML = "No users 😢";
+function showUser(){
+  const card = document.getElementById("card");
+
+  if(index >= users.length){
+    card.innerHTML = "No users found 😢";
     return;
   }
 
   const u = users[index];
-  card.innerHTML = `<h3>${u.email}</h3>`;
+  card.innerHTML = "<h3>"+u.email+"</h3>";
 }
 
 // LIKE
-window.likeUser = async () => {
+window.likeUser = async ()=>{
   const target = users[index];
 
-  await addDoc(collection(db, "likes"), {
+  await addDoc(collection(db,"likes"),{
     from: currentUser.uid,
     to: target.id
   });
 
-  const snap = await getDocs(collection(db, "likes"));
+  const snap = await getDocs(collection(db,"likes"));
   let match = false;
 
-  snap.forEach(d => {
+  snap.forEach(d=>{
     const l = d.data();
-    if (l.from === target.id && l.to === currentUser.uid) match = true;
+    if(l.from === target.id && l.to === currentUser.uid){
+      match = true;
+    }
   });
 
-  if (match) {
+  if(match){
     alert("🔥 Match!");
-    await addDoc(collection(db, "matches"), {
-      users: [currentUser.uid, target.id]
+    await addDoc(collection(db,"matches"),{
+      users:[currentUser.uid,target.id]
     });
     loadMatches();
   }
@@ -149,46 +164,48 @@ window.likeUser = async () => {
 };
 
 // PASS
-window.passUser = () => {
+window.passUser = ()=>{
   index++;
   showUser();
 };
 
-// MATCHES
-async function loadMatches() {
-  const snap = await getDocs(collection(db, "matches"));
-  matches.innerHTML = "";
+// LOAD MATCHES
+async function loadMatches(){
+  const snap = await getDocs(collection(db,"matches"));
+  const div = document.getElementById("matches");
+  div.innerHTML = "";
 
-  snap.forEach(d => {
+  snap.forEach(d=>{
     const m = d.data();
 
-    if (m.users.includes(currentUser.uid)) {
-      const other = m.users.find(u => u !== currentUser.uid);
+    if(m.users.includes(currentUser.uid)){
+      const other = m.users.find(u=>u!==currentUser.uid);
 
       const btn = document.createElement("button");
       btn.innerText = "Chat";
-      btn.onclick = () => openChat(other);
+      btn.onclick = ()=>openChat(other);
 
-      matches.appendChild(btn);
+      div.appendChild(btn);
     }
   });
 }
 
 // CHAT
-function openChat(uid) {
+function openChat(uid){
   chatUser = uid;
-  chatBox.classList.remove("hidden");
+  document.getElementById("chatBox").style.display="block";
 
-  onSnapshot(collection(db, "messages"), snap => {
-    chat.innerHTML = "";
+  onSnapshot(collection(db,"messages"),snap=>{
+    const chat = document.getElementById("chat");
+    chat.innerHTML="";
 
-    snap.forEach(d => {
+    snap.forEach(d=>{
       const m = d.data();
 
-      if (
-        (m.from === currentUser.uid && m.to === uid) ||
-        (m.from === uid && m.to === currentUser.uid)
-      ) {
+      if(
+        (m.from===currentUser.uid && m.to===uid) ||
+        (m.from===uid && m.to===currentUser.uid)
+      ){
         const p = document.createElement("p");
         p.innerText = m.text;
         chat.appendChild(p);
@@ -198,23 +215,19 @@ function openChat(uid) {
 }
 
 // SEND
-window.sendMsg = async () => {
-  const text = val("msg");
+window.sendMsg = async ()=>{
+  const text = document.getElementById("msg").value;
 
-  await addDoc(collection(db, "messages"), {
+  if(!text) return;
+
+  await addDoc(collection(db,"messages"),{
     from: currentUser.uid,
     to: chatUser,
     text
   });
 
-  document.getElementById("msg").value = "";
+  document.getElementById("msg").value="";
 };
-
-// UI
-function authDiv(show) {
-  document.getElementById("auth").style.display = show ? "block" : "none";
-  document.getElementById("app").style.display = show ? "none" : "block";
-}
 
 </script>
 
