@@ -2,13 +2,13 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Real Dating App</title>
+  <title>Dating App Final</title>
   <style>
     body { font-family: Arial; text-align: center; background: #f2f2f2; }
     input, button { padding: 10px; margin: 5px; }
-    img { width: 100px; height: 100px; border-radius: 50%; }
+    img { width: 80px; height: 80px; border-radius: 50%; }
     .card { background: white; padding: 10px; margin: 10px; border-radius: 10px; }
-    #messages { height: 200px; overflow-y: scroll; background: white; margin: 10px; padding: 10px; }
+    #messages { height: 200px; overflow-y: scroll; background: white; padding: 10px; }
   </style>
 </head>
 
@@ -16,9 +16,11 @@
 
 <h2>Dating App ❤️</h2>
 
-<input type="text" id="name" placeholder="Enter your name"><br>
+<input type="text" id="name" placeholder="Enter name"><br>
 <input type="file" id="photo"><br>
-<button onclick="createUser()">Enter App</button>
+<button id="enterBtn">Enter App</button>
+
+<p id="status"></p>
 
 <hr>
 
@@ -28,7 +30,7 @@
   <h3 id="chatWith"></h3>
   <div id="messages"></div>
   <input type="text" id="msg" placeholder="Type message">
-  <button onclick="sendMsg()">Send</button>
+  <button id="sendBtn">Send</button>
 </div>
 
 <script type="module">
@@ -42,8 +44,7 @@ const firebaseConfig = {
   projectId: "dating-app-21c55",
   storageBucket: "dating-app-21c55.firebasestorage.app",
   messagingSenderId: "101828106221",
-  appId: "1:101828106221:web:cdabb70a284a945879f9e4",
-  measurementId: "G-5663NW13F0"
+  appId: "1:101828106221:web:cdabb70a284a945879f9e4"
 };
 
 const app = initializeApp(firebaseConfig);
@@ -53,41 +54,45 @@ let myName = "";
 let currentChat = "";
 
 // CREATE USER
-window.createUser = async function() {
-  const name = document.getElementById("name").value;
-  const photo = document.getElementById("photo").files[0];
+document.getElementById("enterBtn").addEventListener("click", async () => {
 
-  if(!name || !photo){
-    alert("Enter name & photo");
+  const name = document.getElementById("name").value;
+  const file = document.getElementById("photo").files[0];
+
+  if (!name || !file) {
+    document.getElementById("status").innerText = "❌ Name aur photo zaroori hain";
     return;
   }
 
-  myName = name;
+  document.getElementById("status").innerText = "⏳ Entering...";
 
   const reader = new FileReader();
-  reader.onload = async function() {
 
+  reader.onload = async function () {
     await addDoc(collection(db, "users"), {
       name: name,
       photo: reader.result
     });
 
+    myName = name;
+    document.getElementById("status").innerText = "✅ Entered!";
     loadUsers();
   };
 
-  reader.readAsDataURL(photo);
-};
+  reader.readAsDataURL(file);
+
+});
 
 // LOAD USERS
-async function loadUsers(){
-  const querySnapshot = await getDocs(collection(db, "users"));
+async function loadUsers() {
+  const snap = await getDocs(collection(db, "users"));
   const usersDiv = document.getElementById("users");
   usersDiv.innerHTML = "";
 
-  querySnapshot.forEach((doc)=>{
+  snap.forEach(doc => {
     const user = doc.data();
 
-    if(user.name !== myName){
+    if (user.name !== myName) {
       usersDiv.innerHTML += `
         <div class="card">
           <img src="${user.photo}">
@@ -100,8 +105,9 @@ async function loadUsers(){
 }
 
 // START CHAT
-window.startChat = function(name){
+window.startChat = function(name) {
   currentChat = name;
+
   document.getElementById("chatBox").style.display = "block";
   document.getElementById("chatWith").innerText = "Chat with " + name;
 
@@ -109,24 +115,24 @@ window.startChat = function(name){
 
   const q = query(collection(db, "messages"), orderBy("time"));
 
-  onSnapshot(q, (snapshot)=>{
-    const messagesDiv = document.getElementById("messages");
-    messagesDiv.innerHTML = "";
+  onSnapshot(q, (snapshot) => {
+    const box = document.getElementById("messages");
+    box.innerHTML = "";
 
-    snapshot.forEach(doc=>{
+    snapshot.forEach(doc => {
       const data = doc.data();
-      if(data.chatId === chatId){
-        messagesDiv.innerHTML += `<p><b>${data.sender}:</b> ${data.text}</p>`;
+      if (data.chatId === chatId) {
+        box.innerHTML += `<p><b>${data.sender}:</b> ${data.text}</p>`;
       }
     });
   });
 };
 
 // SEND MESSAGE
-window.sendMsg = async function(){
-  const msg = document.getElementById("msg").value;
+document.getElementById("sendBtn").addEventListener("click", async () => {
 
-  if(!msg) return;
+  const msg = document.getElementById("msg").value;
+  if (!msg) return;
 
   const chatId = [myName, currentChat].sort().join("_");
 
@@ -138,7 +144,8 @@ window.sendMsg = async function(){
   });
 
   document.getElementById("msg").value = "";
-};
+
+});
 
 </script>
 
