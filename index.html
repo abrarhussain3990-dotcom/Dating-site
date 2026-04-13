@@ -1,171 +1,14 @@
+
 <!DOCTYPE html>
 <html>
 <head>
-<title>Simple Dating</title>
-<style>
-body{font-family:Arial;text-align:center;background:#eee}
-.card{background:#fff;padding:20px;margin:20px auto;width:300px;border-radius:10px}
-img{width:100%;border-radius:10px}
-button{padding:10px;margin:5px}
-#chat{display:none}
-.msg{margin:5px;padding:5px;border-radius:5px}
-.me{background:#a0e7a0}
-.other{background:#fff}
-</style>
-</head>
-
-<body>
-
-<h2>Dating App ❤️</h2>
-
-<div id="app">
-<div class="card">
-<img id="pic">
-<h3 id="name"></h3>
-</div>
-
-<button onclick="like()">❤️ Like</button>
-<button onclick="next()">❌ Skip</button>
-
-<div id="chat">
-<h3>Chat</h3>
-<div id="msgs"></div>
-<input id="msg">
-<button onclick="send()">Send</button>
-</div>
-</div>
-
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-
-<script>
-const firebaseConfig={
-apiKey:"AIzaSy...",
-authDomain:"dating-app-21c55.firebaseapp.com",
-projectId:"dating-app-21c55"
-};
-
-firebase.initializeApp(firebaseConfig);
-const db=firebase.firestore();
-
-let me,users=[],i=0,chatId=null,unsub=null;
-
-// AUTO PROFILE
-if(!localStorage.getItem("me")){
-let u={
-id:Math.random().toString(36).substr(2,9),
-name:"User"+Math.floor(Math.random()*1000),
-pic:"https://randomuser.me/api/portraits/men/"+Math.floor(Math.random()*50)+".jpg"
-};
-localStorage.setItem("me",JSON.stringify(u));
-}
-me=JSON.parse(localStorage.getItem("me"));
-
-// SAVE ME
-db.collection("users").doc(me.id).set(me);
-
-// FAKE USERS (once)
-let fake=[
-{name:"Ali",pic:"https://randomuser.me/api/portraits/men/1.jpg"},
-{name:"Sara",pic:"https://randomuser.me/api/portraits/women/2.jpg"},
-{name:"John",pic:"https://randomuser.me/api/portraits/men/3.jpg"}
-];
-
-fake.forEach(f=>{
-let id="fake_"+f.name;
-db.collection("users").doc(id).set({...f,id});
-});
-
-// LOAD USERS
-db.collection("users").onSnapshot(s=>{
-users=[];
-s.forEach(d=>{
-let u=d.data();
-if(u.id!==me.id) users.push(u);
-});
-show();
-});
-
-// SHOW
-function show(){
-if(users.length==0) return;
-let u=users[i%users.length];
-document.getElementById("name").innerText=u.name;
-document.getElementById("pic").src=u.pic;
-}
-
-// NEXT
-function next(){
-i++;
-show();
-}
-
-// LIKE
-async function like(){
-let u=users[i%users.length];
-
-await db.collection("likes").add({
-from:me.id,to:u.id
-});
-
-let snap=await db.collection("likes")
-.where("from","==",u.id)
-.where("to","==",me.id).get();
-
-if(!snap.empty){
-chatId=[me.id,u.id].sort().join("_");
-openChat();
-alert("MATCH!");
-}
-
-next();
-}
-
-// CHAT
-function openChat(){
-document.getElementById("chat").style.display="block";
-
-if(unsub)unsub();
-
-unsub=db.collection("chats").doc(chatId)
-.collection("msgs")
-.orderBy("time")
-.onSnapshot(s=>{
-let box=document.getElementById("msgs");
-box.innerHTML="";
-s.forEach(d=>{
-let m=d.data();
-let cls=m.from===me.id?"me":"other";
-box.innerHTML+=`<div class="msg ${cls}">${m.text}</div>`;
-});
-});
-}
-
-// SEND
-function send(){
-let text=document.getElementById("msg").value;
-if(!text) return;
-
-db.collection("chats").doc(chatId)
-.collection("msgs")
-.add({
-text,from:me.id,time:Date.now()
-});
-
-document.getElementById("msg").value="";
-}
-</script>
-
-</body>
-</html><!DOCTYPE html>
-<html>
-<head>
-  <title>Dating App</title>
+  <title>Real Dating App</title>
   <style>
-    body { font-family: Arial; text-align: center; background:#eee; }
-    input, button { padding:10px; margin:5px; }
-    .card { background:white; padding:20px; margin:20px; border-radius:10px; }
-    #app { display:none; }
+    body { font-family: Arial; text-align: center; background: #f2f2f2; }
+    input, button { padding: 10px; margin: 5px; }
+    img { width: 100px; height: 100px; border-radius: 50%; }
+    .card { background: white; padding: 10px; margin: 10px; border-radius: 10px; }
+    #messages { height: 200px; overflow-y: scroll; background: white; margin: 10px; padding: 10px; }
   </style>
 </head>
 
@@ -173,219 +16,128 @@ document.getElementById("msg").value="";
 
 <h2>Dating App ❤️</h2>
 
-<div id="auth">
-  <input id="email" placeholder="Email"><br>
-  <input id="password" type="password" placeholder="Password"><br>
-  <button onclick="signup()">Signup</button>
-  <button onclick="login()">Login</button>
-</div>
+<input type="text" id="name" placeholder="Enter your name"><br>
+<input type="file" id="photo"><br>
+<button onclick="createUser()">Enter App</button>
 
-<div id="app">
-  <div id="card" class="card"></div>
+<hr>
 
-  <button onclick="passUser()">❌ Pass</button>
-  <button onclick="likeUser()">❤️ Like</button>
+<div id="users"></div>
 
-  <h3>Matches</h3>
-  <div id="matches"></div>
-
-  <div id="chatBox" style="display:none;">
-    <input id="msg" placeholder="Message">
-    <button onclick="sendMsg()">Send</button>
-    <div id="chat"></div>
-  </div>
+<div id="chatBox" style="display:none;">
+  <h3 id="chatWith"></h3>
+  <div id="messages"></div>
+  <input type="text" id="msg" placeholder="Type message">
+  <button onclick="sendMsg()">Send</button>
 </div>
 
 <script type="module">
 
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword }
-from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, collection, addDoc, getDocs, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-import { getFirestore, collection, addDoc, getDocs, doc, setDoc, onSnapshot }
-from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-
-// CONFIG
 const firebaseConfig = {
   apiKey: "AIzaSyBGOFD_ukCDkeg5FPf8z_nP7yAzCZXCV7o",
   authDomain: "dating-app-21c55.firebaseapp.com",
   projectId: "dating-app-21c55",
   storageBucket: "dating-app-21c55.firebasestorage.app",
   messagingSenderId: "101828106221",
-  appId: "1:101828106221:web:107966bcc50abe4579f9e4"
+  appId: "1:101828106221:web:cdabb70a284a945879f9e4",
+  measurementId: "G-5663NW13F0"
 };
 
 const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
 const db = getFirestore(app);
 
-let currentUser = null;
-let users = [];
-let index = 0;
-let chatUser = null;
+let myName = "";
+let currentChat = "";
 
-// SIGNUP
-window.signup = async () => {
-  try {
-    const email = emailInput();
-    const pass = passInput();
+// CREATE USER
+window.createUser = async function() {
+  const name = document.getElementById("name").value;
+  const photo = document.getElementById("photo").files[0];
 
-    const u = await createUserWithEmailAndPassword(auth, email, pass);
-    currentUser = u.user;
-
-    await setDoc(doc(db, "users", currentUser.uid), { email });
-
-    startApp();
-  } catch(e){
-    alert(e.message);
-  }
-};
-
-// LOGIN
-window.login = async () => {
-  try {
-    const email = emailInput();
-    const pass = passInput();
-
-    const u = await signInWithEmailAndPassword(auth, email, pass);
-    currentUser = u.user;
-
-    startApp();
-  } catch(e){
-    alert(e.message);
-  }
-};
-
-function emailInput(){ return document.getElementById("email").value; }
-function passInput(){ return document.getElementById("password").value; }
-
-// START
-async function startApp(){
-  document.getElementById("auth").style.display="none";
-  document.getElementById("app").style.display="block";
-
-  const snap = await getDocs(collection(db,"users"));
-  users = [];
-
-  snap.forEach(d=>{
-    if(d.id !== currentUser.uid){
-      users.push({id:d.id,...d.data()});
-    }
-  });
-
-  index = 0;
-  showUser();
-  loadMatches();
-}
-
-// SHOW USER
-function showUser(){
-  const card = document.getElementById("card");
-
-  if(index >= users.length){
-    card.innerHTML = "No users found 😢";
+  if(!name || !photo){
+    alert("Enter name & photo");
     return;
   }
 
-  const u = users[index];
-  card.innerHTML = "<h3>"+u.email+"</h3>";
-}
+  myName = name;
 
-// LIKE
-window.likeUser = async ()=>{
-  const target = users[index];
+  const reader = new FileReader();
+  reader.onload = async function() {
 
-  await addDoc(collection(db,"likes"),{
-    from: currentUser.uid,
-    to: target.id
-  });
-
-  const snap = await getDocs(collection(db,"likes"));
-  let match = false;
-
-  snap.forEach(d=>{
-    const l = d.data();
-    if(l.from === target.id && l.to === currentUser.uid){
-      match = true;
-    }
-  });
-
-  if(match){
-    alert("🔥 Match!");
-    await addDoc(collection(db,"matches"),{
-      users:[currentUser.uid,target.id]
+    await addDoc(collection(db, "users"), {
+      name: name,
+      photo: reader.result
     });
-    loadMatches();
-  }
 
-  index++;
-  showUser();
+    loadUsers();
+  };
+
+  reader.readAsDataURL(photo);
 };
 
-// PASS
-window.passUser = ()=>{
-  index++;
-  showUser();
-};
+// LOAD USERS
+async function loadUsers(){
+  const querySnapshot = await getDocs(collection(db, "users"));
+  const usersDiv = document.getElementById("users");
+  usersDiv.innerHTML = "";
 
-// LOAD MATCHES
-async function loadMatches(){
-  const snap = await getDocs(collection(db,"matches"));
-  const div = document.getElementById("matches");
-  div.innerHTML = "";
+  querySnapshot.forEach((doc)=>{
+    const user = doc.data();
 
-  snap.forEach(d=>{
-    const m = d.data();
-
-    if(m.users.includes(currentUser.uid)){
-      const other = m.users.find(u=>u!==currentUser.uid);
-
-      const btn = document.createElement("button");
-      btn.innerText = "Chat";
-      btn.onclick = ()=>openChat(other);
-
-      div.appendChild(btn);
+    if(user.name !== myName){
+      usersDiv.innerHTML += `
+        <div class="card">
+          <img src="${user.photo}">
+          <h3>${user.name}</h3>
+          <button onclick="startChat('${user.name}')">Match ❤️</button>
+        </div>
+      `;
     }
   });
 }
 
-// CHAT
-function openChat(uid){
-  chatUser = uid;
-  document.getElementById("chatBox").style.display="block";
+// START CHAT
+window.startChat = function(name){
+  currentChat = name;
+  document.getElementById("chatBox").style.display = "block";
+  document.getElementById("chatWith").innerText = "Chat with " + name;
 
-  onSnapshot(collection(db,"messages"),snap=>{
-    const chat = document.getElementById("chat");
-    chat.innerHTML="";
+  const chatId = [myName, name].sort().join("_");
 
-    snap.forEach(d=>{
-      const m = d.data();
+  const q = query(collection(db, "messages"), orderBy("time"));
 
-      if(
-        (m.from===currentUser.uid && m.to===uid) ||
-        (m.from===uid && m.to===currentUser.uid)
-      ){
-        const p = document.createElement("p");
-        p.innerText = m.text;
-        chat.appendChild(p);
+  onSnapshot(q, (snapshot)=>{
+    const messagesDiv = document.getElementById("messages");
+    messagesDiv.innerHTML = "";
+
+    snapshot.forEach(doc=>{
+      const data = doc.data();
+      if(data.chatId === chatId){
+        messagesDiv.innerHTML += `<p><b>${data.sender}:</b> ${data.text}</p>`;
       }
     });
   });
-}
+};
 
-// SEND
-window.sendMsg = async ()=>{
-  const text = document.getElementById("msg").value;
+// SEND MESSAGE
+window.sendMsg = async function(){
+  const msg = document.getElementById("msg").value;
 
-  if(!text) return;
+  if(!msg) return;
 
-  await addDoc(collection(db,"messages"),{
-    from: currentUser.uid,
-    to: chatUser,
-    text
+  const chatId = [myName, currentChat].sort().join("_");
+
+  await addDoc(collection(db, "messages"), {
+    chatId: chatId,
+    sender: myName,
+    text: msg,
+    time: Date.now()
   });
 
-  document.getElementById("msg").value="";
+  document.getElementById("msg").value = "";
 };
 
 </script>
