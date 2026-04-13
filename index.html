@@ -1,79 +1,145 @@
+
 <!DOCTYPE html>
 <html>
+<head>
+  <title>🔥 Badoo Style App</title>
+
+  <style>
+    body{
+      margin:0;
+      font-family:Arial;
+      background:#fafafa;
+    }
+
+    header{
+      background:#ff3b5c;
+      color:white;
+      padding:15px;
+      font-size:20px;
+      font-weight:bold;
+    }
+
+    .container{
+      padding:15px;
+    }
+
+    input,button{
+      width:90%;
+      padding:12px;
+      margin:5px;
+      border-radius:8px;
+      border:1px solid #ddd;
+    }
+
+    button{
+      background:#ff3b5c;
+      color:white;
+      border:none;
+    }
+
+    .card{
+      background:white;
+      border-radius:15px;
+      padding:15px;
+      margin:10px 0;
+      box-shadow:0 2px 10px rgba(0,0,0,0.1);
+      text-align:center;
+    }
+
+    .card img{
+      width:100px;
+      height:100px;
+      border-radius:50%;
+      object-fit:cover;
+    }
+
+    .likeBtn{
+      background:#ff3b5c;
+      margin-top:10px;
+    }
+
+    #chat{
+      position:fixed;
+      bottom:0;
+      left:0;
+      width:100%;
+      background:white;
+      border-top:2px solid #eee;
+      display:none;
+    }
+
+    #messages{
+      height:200px;
+      overflow:auto;
+      padding:10px;
+    }
+
+    .msg{
+      margin:5px 0;
+      padding:8px;
+      border-radius:10px;
+      max-width:70%;
+    }
+
+    .me{
+      background:#ff3b5c;
+      color:white;
+      margin-left:auto;
+    }
+
+    .other{
+      background:#eee;
+    }
+  </style>
+
+</head>
+
 <body>
 
-<h2>Fixed App ✅</h2>
+<header>🔥 Badoo Clone</header>
 
-<input id="name" placeholder="Name"><br><br>
-<input type="file" id="photo"><br><br>
-<button onclick="go()">Enter</button>
+<div class="container">
 
-<p id="s"></p>
+  <input id="name" placeholder="Enter your name">
+  <input type="file" id="photo">
+  <button onclick="enter()">Enter App</button>
 
-<script type="module">
+  <p id="status"></p>
 
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  <div id="users"></div>
 
-const firebaseConfig = {
-  apiKey: "AIzaSyBGOFD_ukCDkeg5FPf8z_nP7yAzCZXCV7o",
-  authDomain: "dating-app-21c55.firebaseapp.com",
-  projectId: "dating-app-21c55",
-  storageBucket: "dating-app-21c55.firebasestorage.app",
-  messagingSenderId: "101828106221",
-  appId: "1:101828106221:web:cdabb70a284a945879f9e4"
-};
+</div>
 
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+<!-- CHAT UI -->
+<div id="chat">
+  <h3 id="chatWith" style="padding:10px;"></h3>
+  <div id="messages"></div>
+  <input id="msg" placeholder="Type message...">
+  <button onclick="send()">Send</button>
+</div>
 
-window.go = async function(){
+<script type="module" src="app.js"></script>
 
-  const s = document.getElementById("s");
-  const name = document.getElementById("name").value;
-  const file = document.getElementById("photo").files[0];
+<script>
+/* CHAT STYLE FIX (live update UI) */
+const oldAppend = Element.prototype.appendChild;
 
-  if(!name || !file){
-    s.innerText = "❌ Name + photo required";
-    return;
-  }
+function formatMessages() {
+  const msgs = document.querySelectorAll("#messages p");
 
-  s.innerText = "⏳ Reading file...";
-
-  const reader = new FileReader();
-
-  reader.onload = async () => {
-    try {
-      s.innerText = "⏳ Sending to Firebase...";
-
-      // TIMEOUT PROTECTION
-      const timeout = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("Timeout ❌ Firebase slow/blocked")), 5000)
-      );
-
-      await Promise.race([
-        addDoc(collection(db, "users"), {
-          name: name,
-          photo: reader.result
-        }),
-        timeout
-      ]);
-
-      s.innerText = "✅ SUCCESS BRO 🔥";
-
-    } catch(e){
-      s.innerText = "❌ ERROR: " + e.message;
-      console.error(e);
+  msgs.forEach(p => {
+    if (p.innerText.includes(":")) {
+      const name = p.innerText.split(":")[0];
+      if (name === window.myName) {
+        p.className = "msg me";
+      } else {
+        p.className = "msg other";
+      }
     }
-  };
+  });
+}
 
-  reader.onerror = () => {
-    s.innerText = "❌ File read error";
-  };
-
-  reader.readAsDataURL(file);
-};
-
+setInterval(formatMessages, 500);
 </script>
 
 </body>
