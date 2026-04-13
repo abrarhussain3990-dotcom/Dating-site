@@ -6,10 +6,13 @@ import {
   ref, uploadBytes, getDownloadURL
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 
-let myName="", currentChat="";
+let myName = "";
+window.myName = "";
+let currentChat = "";
 
-// ENTER
+// 🔥 ENTER FUNCTION (MAIN FIX)
 window.enter = async function(){
+
   const name = document.getElementById("name").value;
   const file = document.getElementById("photo").files[0];
   const s = document.getElementById("status");
@@ -20,7 +23,7 @@ window.enter = async function(){
   }
 
   try{
-    s.innerText="⏳ Uploading image...";
+    s.innerText="⏳ Uploading...";
 
     const storageRef = ref(storage,"photos/"+Date.now());
     await uploadBytes(storageRef,file);
@@ -31,7 +34,9 @@ window.enter = async function(){
       photo:url
     });
 
-    myName=name;
+    myName = name;
+    window.myName = name;
+
     s.innerText="✅ Entered";
 
     loadUsers();
