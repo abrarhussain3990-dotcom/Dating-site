@@ -1,9 +1,10 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Dating App</title>
+  <title>🔥 Dating App</title>
   <style>
     body { font-family: Arial; text-align: center; background: #f2f2f2; }
+
     .card {
       background: white;
       padding: 20px;
@@ -12,7 +13,9 @@
       border-radius: 10px;
       box-shadow: 0 0 10px gray;
     }
+
     img { width: 100%; border-radius: 10px; }
+
     button {
       padding: 10px;
       margin: 5px;
@@ -20,8 +23,10 @@
       border-radius: 5px;
       cursor: pointer;
     }
+
     .like { background: green; color: white; }
     .skip { background: red; color: white; }
+
     #chatBox {
       display:none;
       background:white;
@@ -34,13 +39,15 @@
 
 <h2>🔥 Dating App</h2>
 
-<div class="card" id="card">
-  <img id="profilePic" src="">
+<div class="card">
+  <img id="profilePic">
   <h3 id="profileName"></h3>
 </div>
 
 <button class="like" onclick="like()">❤️ Like</button>
 <button class="skip" onclick="next()">❌ Skip</button>
+<br>
+<button onclick="addUser()">➕ Add Yourself</button>
 
 <div id="chatBox">
   <h3>💬 Chat</h3>
@@ -58,61 +65,104 @@ const firebaseConfig = {
   apiKey: "AIzaSyBGOFD_ukCDkeg5FPf8z_nP7yAzCZXCV7o",
   authDomain: "dating-app-21c55.firebaseapp.com",
   projectId: "dating-app-21c55",
-  storageBucket: "dating-app-21c55.firebasestorage.app",
-  messagingSenderId: "101828106221",
-  appId: "1:101828106221:web:45ff810c81180e6679f9e4",
-  measurementId: "G-B3WQ2KB49H"
 };
 
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
-// Fake Profiles
-let profiles = [
-  {name:"Ayesha", pic:"https://i.pravatar.cc/300?img=5"},
-  {name:"Sara", pic:"https://i.pravatar.cc/300?img=6"},
-  {name:"Ali", pic:"https://i.pravatar.cc/300?img=7"},
-  {name:"Zara", pic:"https://i.pravatar.cc/300?img=8"}
-];
+// Fake Profiles (20+)
+let fakeProfiles = [];
+for(let i=1;i<=30;i++){
+  fakeProfiles.push({
+    name: "User " + i,
+    pic: "https://i.pravatar.cc/300?img=" + i
+  });
+}
 
+let profiles = [];
 let current = 0;
 let matchedUser = null;
 
-// Show Profile
-function showProfile() {
+// Load users
+async function loadUsers(){
+  profiles = [...fakeProfiles];
+
+  let snapshot = await db.collection("users").get();
+  snapshot.forEach(doc => profiles.push(doc.data()));
+
+  shuffle(profiles);
+  showProfile();
+}
+
+// Shuffle
+function shuffle(arr){
+  for(let i=arr.length-1;i>0;i--){
+    let j = Math.floor(Math.random()*(i+1));
+    [arr[i],arr[j]]=[arr[j],arr[i]];
+  }
+}
+
+// Show profile
+function showProfile(){
   document.getElementById("profileName").innerText = profiles[current].name;
   document.getElementById("profilePic").src = profiles[current].pic;
 }
 
-showProfile();
-
-// Next Profile
-function next() {
+// Next
+function next(){
   current = (current + 1) % profiles.length;
   showProfile();
 }
 
-// Like = Match instantly (fake logic)
-function like() {
-  matchedUser = profiles[current];
-  alert("🔥 It's a Match with " + matchedUser.name);
-  document.getElementById("chatBox").style.display = "block";
+// Match logic (realistic)
+function like(){
+  let chance = Math.random();
+
+  if(chance < 0.4){
+    matchedUser = profiles[current];
+    alert("🔥 Match with " + matchedUser.name);
+    document.getElementById("chatBox").style.display = "block";
+  } else {
+    alert("❌ No match");
+  }
+
+  next();
 }
 
-// Send Message
-function sendMsg() {
+// Chat
+function sendMsg(){
   let msg = document.getElementById("msg").value;
-  if(msg === "") return;
+  if(msg==="") return;
 
-  document.getElementById("messages").innerHTML += "<p><b>You:</b> " + msg + "</p>";
+  document.getElementById("messages").innerHTML += "<p><b>You:</b> "+msg+"</p>";
+  document.getElementById("msg").value="";
 
-  // Fake reply
-  setTimeout(() => {
-    document.getElementById("messages").innerHTML += "<p><b>"+matchedUser.name+":</b> Hi 😄</p>";
-  },1000);
+  let replyChance = Math.random();
 
-  document.getElementById("msg").value = "";
+  if(replyChance < 0.7){
+    let delay = Math.floor(Math.random()*5000)+1000;
+
+    setTimeout(()=>{
+      let replies = ["Hi 😄","How are you?","Nice to meet you","Haha 😂","Tell me more","Where are you from?"];
+      let reply = replies[Math.floor(Math.random()*replies.length)];
+
+      document.getElementById("messages").innerHTML += "<p><b>"+matchedUser.name+":</b> "+reply+"</p>";
+    },delay);
+  }
 }
+
+// Add real user
+function addUser(){
+  let name = prompt("Enter your name");
+  let pic = prompt("Enter image URL");
+
+  if(!name || !pic) return;
+
+  db.collection("users").add({name, pic});
+  alert("✅ Added! Reload app");
+}
+
+loadUsers();
 </script>
 
 </body>
