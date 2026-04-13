@@ -1,246 +1,234 @@
-
 <!DOCTYPE html>
 <html>
 <head>
-  <title>🔥 Real Dating + Chat FIXED</title>
-
+  <title>Dating App</title>
   <style>
-    body { font-family: Arial; background:#e5ddd5; text-align:center; }
-
-    .card {
-      background:white;
-      padding:20px;
-      margin:20px auto;
-      width:300px;
-      border-radius:10px;
-      box-shadow:0 0 10px gray;
-    }
-
-    img { width:100%; border-radius:10px; }
-
-    button {
-      padding:10px; margin:5px;
-      border:none; border-radius:5px;
-    }
-
-    .like { background:green; color:white; }
-    .skip { background:red; color:white; }
-
-    #chatBox {
-      display:none;
-      background:#efeae2;
-      padding:10px;
-    }
-
-    .msg { padding:8px; margin:5px; border-radius:10px; max-width:70%; }
-    .me { background:#dcf8c6; margin-left:auto; }
-    .other { background:white; margin-right:auto; }
-
-    #messages { height:250px; overflow:auto; }
+    body { font-family: Arial; text-align: center; background:#eee; }
+    input, button { padding:10px; margin:5px; }
+    .card { background:white; padding:20px; margin:20px; border-radius:10px; }
+    #app { display:none; }
   </style>
 </head>
 
 <body>
 
-<h2>🔥 REAL APP FIXED</h2>
+<h2>Dating App ❤️</h2>
 
-<!-- LOGIN -->
-<div id="login">
-  <input id="username" placeholder="Enter name"><br><br>
-  <input type="file" id="cameraPic"><br><br>
-  <button onclick="login()">Enter App</button>
+<div id="auth">
+  <input id="email" placeholder="Email"><br>
+  <input id="password" type="password" placeholder="Password"><br>
+  <button onclick="signup()">Signup</button>
+  <button onclick="login()">Login</button>
 </div>
 
-<!-- APP -->
-<div id="app" style="display:none;">
+<div id="app">
+  <div id="card" class="card"></div>
 
-  <div class="card">
-    <img id="profilePic">
-    <h3 id="profileName"></h3>
-  </div>
+  <button onclick="passUser()">❌ Pass</button>
+  <button onclick="likeUser()">❤️ Like</button>
 
-  <button class="like" onclick="like()">❤️ Like</button>
-  <button class="skip" onclick="next()">❌ Skip</button>
+  <h3>Matches</h3>
+  <div id="matches"></div>
 
-  <div id="chatBox">
-    <h3>💬 Chat</h3>
-    <div id="messages"></div>
-
-    <input id="msg">
+  <div id="chatBox" style="display:none;">
+    <input id="msg" placeholder="Message">
     <button onclick="sendMsg()">Send</button>
+    <div id="chat"></div>
   </div>
-
 </div>
 
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script type="module">
 
-<script>
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword }
+from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+import { getFirestore, collection, addDoc, getDocs, doc, setDoc, onSnapshot }
+from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+// CONFIG
 const firebaseConfig = {
-  apiKey: "AIzaSy...",
+  apiKey: "AIzaSyBGOFD_ukCDkeg5FPf8z_nP7yAzCZXCV7o",
   authDomain: "dating-app-21c55.firebaseapp.com",
-  projectId: "dating-app-21c55"
+  projectId: "dating-app-21c55",
+  storageBucket: "dating-app-21c55.firebasestorage.app",
+  messagingSenderId: "101828106221",
+  appId: "1:101828106221:web:107966bcc50abe4579f9e4"
 };
 
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
 
-let currentUser, users=[], current=0, chatId=null, unsubscribe=null;
+let currentUser = null;
+let users = [];
+let index = 0;
+let chatUser = null;
 
-// AUTO LOGIN
-window.onload = () => {
-  let saved = localStorage.getItem("user");
-  if(saved){
-    currentUser = JSON.parse(saved);
+// SIGNUP
+window.signup = async () => {
+  try {
+    const email = emailInput();
+    const pass = passInput();
+
+    const u = await createUserWithEmailAndPassword(auth, email, pass);
+    currentUser = u.user;
+
+    await setDoc(doc(db, "users", currentUser.uid), { email });
+
     startApp();
+  } catch(e){
+    alert(e.message);
   }
 };
 
 // LOGIN
-async function login(){
+window.login = async () => {
+  try {
+    const email = emailInput();
+    const pass = passInput();
 
-  let name=document.getElementById("username").value.trim();
-  if(!name){ alert("Enter name"); return; }
+    const u = await signInWithEmailAndPassword(auth, email, pass);
+    currentUser = u.user;
 
-  let pic="https://via.placeholder.com/300";
+    startApp();
+  } catch(e){
+    alert(e.message);
+  }
+};
 
-  let file=document.getElementById("cameraPic").files;
-  if(file.length>0){
-    pic=URL.createObjectURL(file[0]);
+function emailInput(){ return document.getElementById("email").value; }
+function passInput(){ return document.getElementById("password").value; }
+
+// START
+async function startApp(){
+  document.getElementById("auth").style.display="none";
+  document.getElementById("app").style.display="block";
+
+  const snap = await getDocs(collection(db,"users"));
+  users = [];
+
+  snap.forEach(d=>{
+    if(d.id !== currentUser.uid){
+      users.push({id:d.id,...d.data()});
+    }
+  });
+
+  index = 0;
+  showUser();
+  loadMatches();
+}
+
+// SHOW USER
+function showUser(){
+  const card = document.getElementById("card");
+
+  if(index >= users.length){
+    card.innerHTML = "No users found 😢";
+    return;
   }
 
-  currentUser={
-    id:Date.now().toString(),
-    name,
-    pic
-  };
-
-  localStorage.setItem("user", JSON.stringify(currentUser));
-
-  await db.collection("users").doc(currentUser.id).set(currentUser);
-
-  startApp();
+  const u = users[index];
+  card.innerHTML = "<h3>"+u.email+"</h3>";
 }
 
-// START APP
-function startApp(){
-  document.getElementById("login").style.display="none";
-  document.getElementById("app").style.display="block";
-  loadUsers();
-}
+// LIKE
+window.likeUser = async ()=>{
+  const target = users[index];
 
-// USERS
-function loadUsers(){
+  await addDoc(collection(db,"likes"),{
+    from: currentUser.uid,
+    to: target.id
+  });
 
-  db.collection("users").onSnapshot(snap=>{
+  const snap = await getDocs(collection(db,"likes"));
+  let match = false;
 
-    users=[];
+  snap.forEach(d=>{
+    const l = d.data();
+    if(l.from === target.id && l.to === currentUser.uid){
+      match = true;
+    }
+  });
 
-    snap.forEach(doc=>{
-      let u=doc.data();
-      if(u.id!==currentUser.id){
-        users.push(u);
-      }
+  if(match){
+    alert("🔥 Match!");
+    await addDoc(collection(db,"matches"),{
+      users:[currentUser.uid,target.id]
     });
+    loadMatches();
+  }
 
-    if(users.length>0){
-      current=0;
-      showProfile();
+  index++;
+  showUser();
+};
+
+// PASS
+window.passUser = ()=>{
+  index++;
+  showUser();
+};
+
+// LOAD MATCHES
+async function loadMatches(){
+  const snap = await getDocs(collection(db,"matches"));
+  const div = document.getElementById("matches");
+  div.innerHTML = "";
+
+  snap.forEach(d=>{
+    const m = d.data();
+
+    if(m.users.includes(currentUser.uid)){
+      const other = m.users.find(u=>u!==currentUser.uid);
+
+      const btn = document.createElement("button");
+      btn.innerText = "Chat";
+      btn.onclick = ()=>openChat(other);
+
+      div.appendChild(btn);
     }
   });
 }
 
-// PROFILE
-function showProfile(){
-  let u=users[current];
-  document.getElementById("profileName").innerText=u.name;
-  document.getElementById("profilePic").src=u.pic;
+// CHAT
+function openChat(uid){
+  chatUser = uid;
+  document.getElementById("chatBox").style.display="block";
+
+  onSnapshot(collection(db,"messages"),snap=>{
+    const chat = document.getElementById("chat");
+    chat.innerHTML="";
+
+    snap.forEach(d=>{
+      const m = d.data();
+
+      if(
+        (m.from===currentUser.uid && m.to===uid) ||
+        (m.from===uid && m.to===currentUser.uid)
+      ){
+        const p = document.createElement("p");
+        p.innerText = m.text;
+        chat.appendChild(p);
+      }
+    });
+  });
 }
 
-// NEXT
-function next(){
-  if(users.length===0) return;
-  current=(current+1)%users.length;
-  showProfile();
-}
+// SEND
+window.sendMsg = async ()=>{
+  const text = document.getElementById("msg").value;
 
-// LIKE + MATCH
-async function like(){
+  if(!text) return;
 
-  let u=users[current];
-
-  await db.collection("likes").add({
-    from:currentUser.id,
-    to:u.id
+  await addDoc(collection(db,"messages"),{
+    from: currentUser.uid,
+    to: chatUser,
+    text
   });
 
-  let snap=await db.collection("likes")
-    .where("from","==",u.id)
-    .where("to","==",currentUser.id)
-    .get();
-
-  if(!snap.empty){
-
-    chatId=[currentUser.id,u.id].sort().join("_");
-
-    document.getElementById("chatBox").style.display="block";
-
-    if(unsubscribe) unsubscribe(); // FIX duplicate listener
-
-    loadMessages();
-
-    alert("🔥 MATCH with "+u.name);
-  }
-
-  next();
-}
-
-// SEND MESSAGE
-function sendMsg(){
-
-  if(!chatId){
-    alert("Match first!");
-    return;
-  }
-
-  let msg=document.getElementById("msg").value.trim();
-  if(!msg) return;
-
-  db.collection("chats")
-    .doc(chatId)
-    .collection("messages")
-    .add({
-      text:msg,
-      senderId:currentUser.id,
-      time:Date.now()
-    });
-
   document.getElementById("msg").value="";
-}
+};
 
-// LOAD CHAT (REALTIME FIXED)
-function loadMessages(){
-
-  unsubscribe = db.collection("chats")
-    .doc(chatId)
-    .collection("messages")
-    .orderBy("time")
-    .onSnapshot(snap=>{
-
-      let box=document.getElementById("messages");
-      box.innerHTML="";
-
-      snap.forEach(doc=>{
-        let m=doc.data();
-        let cls=(m.senderId===currentUser.id)?"me":"other";
-
-        box.innerHTML+=`
-        <div class="msg ${cls}">${m.text}</div>`;
-      });
-
-      box.scrollTop=box.scrollHeight;
-    });
-}
 </script>
 
 </body>
