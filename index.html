@@ -1,279 +1,118 @@
-
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Dating App Pro ❤️</title>
-
+  <title>Dating App</title>
   <style>
     body { font-family: Arial; text-align: center; background: #f2f2f2; }
-
-    input, button {
-      padding: 10px;
-      margin: 5px;
-      border-radius: 10px;
-      border: none;
-    }
-
     .card {
       background: white;
       padding: 20px;
       margin: 20px auto;
-      border-radius: 20px;
-      width: 250px;
-      box-shadow: 0 10px 20px rgba(0,0,0,0.2);
-    }
-
-    .hidden { display: none; }
-
-    #chat {
-      background: white;
-      height: 200px;
-      overflow-y: scroll;
-      margin: 10px;
-      padding: 10px;
+      width: 300px;
       border-radius: 10px;
+      box-shadow: 0 0 10px gray;
     }
-
-    .me { color: hotpink; }
-    .other { color: gray; }
+    img { width: 100%; border-radius: 10px; }
+    button {
+      padding: 10px;
+      margin: 5px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    .like { background: green; color: white; }
+    .skip { background: red; color: white; }
+    #chatBox {
+      display:none;
+      background:white;
+      padding:10px;
+      margin-top:20px;
+    }
   </style>
 </head>
-
 <body>
 
-<h2>🔥 Dating App Pro</h2>
+<h2>🔥 Dating App</h2>
 
-<div id="auth">
-  <input id="email" placeholder="Email"><br>
-  <input id="password" type="password" placeholder="Password"><br>
-  <button onclick="signup()">Signup</button>
-  <button onclick="login()">Login</button>
-  <br>
-  <button onclick="addFakeUsers()">Add 100 Users</button>
+<div class="card" id="card">
+  <img id="profilePic" src="">
+  <h3 id="profileName"></h3>
 </div>
 
-<div id="app" class="hidden">
+<button class="like" onclick="like()">❤️ Like</button>
+<button class="skip" onclick="next()">❌ Skip</button>
 
-  <div class="card" id="card"></div>
-
-  <button onclick="passUser()">❌ Pass</button>
-  <button onclick="likeUser()">❤️ Like</button>
-
-  <h3>Matches</h3>
-  <div id="matches"></div>
-
-  <div id="chatBox" class="hidden">
-    <div id="chat"></div>
-    <input id="msg" placeholder="Message">
-    <button onclick="sendMsg()">Send</button>
-  </div>
-
+<div id="chatBox">
+  <h3>💬 Chat</h3>
+  <div id="messages"></div>
+  <input id="msg" placeholder="Type message...">
+  <button onclick="sendMsg()">Send</button>
 </div>
 
-<script type="module">
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import {
-  getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword
-} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-
-import {
-  getFirestore, collection, addDoc, getDocs, doc, setDoc, onSnapshot, query, where
-} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-
-// CONFIG
+<script>
 const firebaseConfig = {
   apiKey: "AIzaSyBGOFD_ukCDkeg5FPf8z_nP7yAzCZXCV7o",
   authDomain: "dating-app-21c55.firebaseapp.com",
   projectId: "dating-app-21c55",
   storageBucket: "dating-app-21c55.firebasestorage.app",
   messagingSenderId: "101828106221",
-  appId: "1:101828106221:web:107966bcc50abe4579f9e4"
+  appId: "1:101828106221:web:45ff810c81180e6679f9e4",
+  measurementId: "G-B3WQ2KB49H"
 };
 
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
 
-let currentUser, users = [], index = 0, chatUser;
+// Fake Profiles
+let profiles = [
+  {name:"Ayesha", pic:"https://i.pravatar.cc/300?img=5"},
+  {name:"Sara", pic:"https://i.pravatar.cc/300?img=6"},
+  {name:"Ali", pic:"https://i.pravatar.cc/300?img=7"},
+  {name:"Zara", pic:"https://i.pravatar.cc/300?img=8"}
+];
 
-// AUTH
-window.signup = async () => {
-  try {
-    const u = await createUserWithEmailAndPassword(auth, val("email"), val("password"));
-    currentUser = u.user;
+let current = 0;
+let matchedUser = null;
 
-    await setDoc(doc(db, "users", currentUser.uid), {
-      email: currentUser.email
-    });
-
-    start();
-  } catch(e) { alert(e.message); }
-};
-
-window.login = async () => {
-  try {
-    const u = await signInWithEmailAndPassword(auth, val("email"), val("password"));
-    currentUser = u.user;
-    start();
-  } catch(e) { alert(e.message); }
-};
-
-function val(id){ return document.getElementById(id).value; }
-
-// START
-async function start() {
-  authDiv(false);
-
-  const snap = await getDocs(collection(db, "users"));
-  users = [];
-
-  snap.forEach(d => {
-    if (d.id !== currentUser.uid) {
-      users.push({ id: d.id, ...d.data() });
-    }
-  });
-
-  index = 0;
-  showUser();
-  loadMatches();
+// Show Profile
+function showProfile() {
+  document.getElementById("profileName").innerText = profiles[current].name;
+  document.getElementById("profilePic").src = profiles[current].pic;
 }
 
-// SHOW USER
-function showUser() {
-  if (index >= users.length) {
-    card.innerHTML = "No more users 😢";
-    return;
-  }
+showProfile();
 
-  const u = users[index];
-  card.innerHTML = `<h3>${u.email}</h3>`;
+// Next Profile
+function next() {
+  current = (current + 1) % profiles.length;
+  showProfile();
 }
 
-// LIKE
-window.likeUser = async () => {
-  const target = users[index];
-
-  await addDoc(collection(db, "likes"), {
-    from: currentUser.uid,
-    to: target.id
-  });
-
-  // FAST MATCH CHECK
-  const q = query(
-    collection(db, "likes"),
-    where("from", "==", target.id),
-    where("to", "==", currentUser.uid)
-  );
-
-  const snap = await getDocs(q);
-
-  if (!snap.empty) {
-    alert("💖 MATCH!");
-
-    await addDoc(collection(db, "matches"), {
-      users: [currentUser.uid, target.id]
-    });
-
-    loadMatches();
-  }
-
-  index++;
-  showUser();
-};
-
-// PASS
-window.passUser = () => {
-  index++;
-  showUser();
-};
-
-// MATCHES
-async function loadMatches() {
-  const snap = await getDocs(collection(db, "matches"));
-  matches.innerHTML = "";
-
-  snap.forEach(d => {
-    const m = d.data();
-
-    if (m.users.includes(currentUser.uid)) {
-      const other = m.users.find(u => u !== currentUser.uid);
-
-      const btn = document.createElement("button");
-      btn.innerText = "Chat";
-      btn.onclick = () => openChat(other);
-
-      matches.appendChild(btn);
-    }
-  });
+// Like = Match instantly (fake logic)
+function like() {
+  matchedUser = profiles[current];
+  alert("🔥 It's a Match with " + matchedUser.name);
+  document.getElementById("chatBox").style.display = "block";
 }
 
-// CHAT
-function openChat(uid) {
-  chatUser = uid;
-  chatBox.classList.remove("hidden");
+// Send Message
+function sendMsg() {
+  let msg = document.getElementById("msg").value;
+  if(msg === "") return;
 
-  onSnapshot(collection(db, "messages"), snap => {
-    chat.innerHTML = "";
+  document.getElementById("messages").innerHTML += "<p><b>You:</b> " + msg + "</p>";
 
-    snap.forEach(d => {
-      const m = d.data();
-
-      if (
-        (m.from === currentUser.uid && m.to === uid) ||
-        (m.from === uid && m.to === currentUser.uid)
-      ) {
-        const p = document.createElement("p");
-        p.className = m.from === currentUser.uid ? "me" : "other";
-        p.innerText = m.text;
-        chat.appendChild(p);
-      }
-    });
-  });
-}
-
-// SEND + AUTO REPLY
-window.sendMsg = async () => {
-  const text = val("msg");
-
-  await addDoc(collection(db, "messages"), {
-    from: currentUser.uid,
-    to: chatUser,
-    text
-  });
+  // Fake reply
+  setTimeout(() => {
+    document.getElementById("messages").innerHTML += "<p><b>"+matchedUser.name+":</b> Hi 😄</p>";
+  },1000);
 
   document.getElementById("msg").value = "";
-
-  // BOT REPLY 🤖
-  setTimeout(async () => {
-    const replies = ["Hi 😊","Nice to meet you","How are you?","😍"];
-    const reply = replies[Math.floor(Math.random()*replies.length)];
-
-    await addDoc(collection(db, "messages"), {
-      from: chatUser,
-      to: currentUser.uid,
-      text: reply
-    });
-
-  }, 1500);
-};
-
-// FAKE USERS
-window.addFakeUsers = async () => {
-  for (let i = 1; i <= 100; i++) {
-    await setDoc(doc(db, "users", "fake_" + i), {
-      email: "user" + i + "@app.com"
-    });
-  }
-  alert("100 Users Added 🔥");
-};
-
-// UI
-function authDiv(show) {
-  auth.style.display = show ? "block" : "none";
-  app.style.display = show ? "none" : "block";
 }
-
 </script>
 
 </body>
