@@ -1,7 +1,8 @@
+
 <!DOCTYPE html>
 <html>
 <head>
-  <title>🔥 Real Dating + Chat</title>
+  <title>🔥 Real Dating + Chat FIXED</title>
 
   <style>
     body { font-family: Arial; background:#e5ddd5; text-align:center; }
@@ -41,7 +42,7 @@
 
 <body>
 
-<h2>🔥 REAL APP</h2>
+<h2>🔥 REAL APP FIXED</h2>
 
 <!-- LOGIN -->
 <div id="login">
@@ -84,7 +85,16 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
-let currentUser, users=[], current=0, chatId=null;
+let currentUser, users=[], current=0, chatId=null, unsubscribe=null;
+
+// AUTO LOGIN
+window.onload = () => {
+  let saved = localStorage.getItem("user");
+  if(saved){
+    currentUser = JSON.parse(saved);
+    startApp();
+  }
+};
 
 // LOGIN
 async function login(){
@@ -95,7 +105,7 @@ async function login(){
   let pic="https://via.placeholder.com/300";
 
   let file=document.getElementById("cameraPic").files;
-  if(file && file.length>0){
+  if(file.length>0){
     pic=URL.createObjectURL(file[0]);
   }
 
@@ -105,15 +115,21 @@ async function login(){
     pic
   };
 
+  localStorage.setItem("user", JSON.stringify(currentUser));
+
   await db.collection("users").doc(currentUser.id).set(currentUser);
 
+  startApp();
+}
+
+// START APP
+function startApp(){
   document.getElementById("login").style.display="none";
   document.getElementById("app").style.display="block";
-
   loadUsers();
 }
 
-// REALTIME USERS
+// USERS
 function loadUsers(){
 
   db.collection("users").onSnapshot(snap=>{
@@ -127,11 +143,14 @@ function loadUsers(){
       }
     });
 
-    if(users.length>0) showProfile();
+    if(users.length>0){
+      current=0;
+      showProfile();
+    }
   });
 }
 
-// SHOW PROFILE
+// PROFILE
 function showProfile(){
   let u=users[current];
   document.getElementById("profileName").innerText=u.name;
@@ -140,22 +159,21 @@ function showProfile(){
 
 // NEXT
 function next(){
+  if(users.length===0) return;
   current=(current+1)%users.length;
   showProfile();
 }
 
-// ❤️ REAL MATCH SYSTEM
+// LIKE + MATCH
 async function like(){
 
   let u=users[current];
 
-  // save like
   await db.collection("likes").add({
     from:currentUser.id,
     to:u.id
   });
 
-  // check reverse like
   let snap=await db.collection("likes")
     .where("from","==",u.id)
     .where("to","==",currentUser.id)
@@ -166,6 +184,8 @@ async function like(){
     chatId=[currentUser.id,u.id].sort().join("_");
 
     document.getElementById("chatBox").style.display="block";
+
+    if(unsubscribe) unsubscribe(); // FIX duplicate listener
 
     loadMessages();
 
@@ -183,7 +203,7 @@ function sendMsg(){
     return;
   }
 
-  let msg=document.getElementById("msg").value;
+  let msg=document.getElementById("msg").value.trim();
   if(!msg) return;
 
   db.collection("chats")
@@ -198,10 +218,10 @@ function sendMsg(){
   document.getElementById("msg").value="";
 }
 
-// CHAT
+// LOAD CHAT (REALTIME FIXED)
 function loadMessages(){
 
-  db.collection("chats")
+  unsubscribe = db.collection("chats")
     .doc(chatId)
     .collection("messages")
     .orderBy("time")
