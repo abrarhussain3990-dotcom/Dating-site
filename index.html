@@ -1,7 +1,9 @@
+
 <!DOCTYPE html>
 <html>
 <head>
-  <title>🔥 Real Dating App</title>
+  <title>🔥 Real Dating App FIXED</title>
+
   <style>
     body { font-family: Arial; text-align: center; background:#f2f2f2; }
 
@@ -27,22 +29,24 @@
     .like { background:green; color:white; }
     .skip { background:red; color:white; }
 
-    #chatBox { display:none; background:white; padding:10px; }
+    #chatBox { display:none; background:white; padding:10px; margin-top:10px; }
   </style>
 </head>
+
 <body>
 
-<h2>🔥 Real Dating App</h2>
+<h2>🔥 Real Dating App FIXED</h2>
 
 <!-- LOGIN -->
 <div id="login">
-  <input id="username" placeholder="Enter your name">
-  <input id="userpic" placeholder="Enter image URL">
+  <input id="username" placeholder="Enter your name"><br><br>
+  <input id="userpic" placeholder="Enter image URL"><br><br>
   <button onclick="login()">Enter App</button>
 </div>
 
 <!-- APP -->
 <div id="app" style="display:none;">
+
   <div class="card">
     <img id="profilePic">
     <h3 id="profileName"></h3>
@@ -53,10 +57,13 @@
 
   <div id="chatBox">
     <h3>💬 Chat</h3>
-    <div id="messages" style="height:200px; overflow:auto;"></div>
-    <input id="msg">
+
+    <div id="messages" style="height:200px; overflow:auto; border:1px solid #ccc;"></div>
+
+    <input id="msg" placeholder="Type message">
     <button onclick="sendMsg()">Send</button>
   </div>
+
 </div>
 
 <!-- Firebase -->
@@ -81,18 +88,19 @@ let chatId = null;
 
 // LOGIN
 async function login(){
+
   let name = document.getElementById("username").value;
   let pic = document.getElementById("userpic").value;
 
-  if(!name || !pic){
-    alert("Enter details");
+  if(!name){
+    alert("Enter name");
     return;
   }
 
   currentUser = {
     id: Date.now().toString(),
-    name,
-    pic
+    name: name,
+    pic: pic
   };
 
   await db.collection("users").doc(currentUser.id).set(currentUser);
@@ -105,9 +113,11 @@ async function login(){
 
 // LOAD USERS
 async function loadUsers(){
+
   users = [];
 
   let snap = await db.collection("users").get();
+
   snap.forEach(doc => {
     let u = doc.data();
     if(u.id !== currentUser.id){
@@ -115,73 +125,112 @@ async function loadUsers(){
     }
   });
 
+  if(users.length === 0){
+    alert("No users found");
+    return;
+  }
+
   showProfile();
 }
 
 // SHOW PROFILE
 function showProfile(){
-  if(users.length===0) return;
 
-  document.getElementById("profileName").innerText = users[current].name;
-  document.getElementById("profilePic").src = users[current].pic;
+  if(users.length === 0) return;
+
+  let user = users[current];
+
+  document.getElementById("profileName").innerText = user.name;
+
+  document.getElementById("profilePic").src =
+    user.pic || "https://via.placeholder.com/300";
 }
 
-// NEXT
+// NEXT PROFILE
 function next(){
+
+  if(users.length === 0) return;
+
   current = (current + 1) % users.length;
   showProfile();
 }
 
-// MATCH SYSTEM (REAL)
+// ❤️ LIKE (FIXED MUTUAL MATCH)
 async function like(){
+
   matchedUser = users[current];
 
-  let matchId = currentUser.id + "_" + matchedUser.id;
-
-  await db.collection("matches").doc(matchId).set({
-    users:[currentUser.id, matchedUser.id]
+  // save like
+  await db.collection("likes").add({
+    from: currentUser.id,
+    to: matchedUser.id
   });
 
-  chatId = matchId;
+  // check mutual like
+  let snap = await db.collection("likes")
+    .where("from","==",matchedUser.id)
+    .where("to","==",currentUser.id)
+    .get();
 
-  alert("🔥 Match with " + matchedUser.name);
+  if(!snap.empty){
 
-  document.getElementById("chatBox").style.display="block";
+    chatId = [currentUser.id, matchedUser.id].sort().join("_");
 
-  loadMessages();
+    await db.collection("matches").doc(chatId).set({
+      users:[currentUser.id, matchedUser.id]
+    });
+
+    alert("🔥 MATCH: " + matchedUser.name);
+
+    document.getElementById("chatBox").style.display="block";
+
+    loadMessages();
+  }
 
   next();
 }
 
-// SEND MESSAGE
+// 💬 SEND MESSAGE
 function sendMsg(){
-  let msg = document.getElementById("msg").value;
-  if(msg==="") return;
 
-  db.collection("chats").doc(chatId).collection("messages").add({
-    text: msg,
-    sender: currentUser.name,
-    time: Date.now()
-  });
+  if(!chatId){
+    alert("No match yet!");
+    return;
+  }
+
+  let msg = document.getElementById("msg").value;
+
+  if(msg === "") return;
+
+  db.collection("chats")
+    .doc(chatId)
+    .collection("messages")
+    .add({
+      text: msg,
+      sender: currentUser.name,
+      time: Date.now()
+    });
 
   document.getElementById("msg").value="";
 }
 
-// LOAD LIVE CHAT
+// 💬 REALTIME CHAT
 function loadMessages(){
+
   db.collection("chats")
     .doc(chatId)
     .collection("messages")
     .orderBy("time")
     .onSnapshot(snapshot => {
 
-      document.getElementById("messages").innerHTML="";
+      let box = document.getElementById("messages");
+      box.innerHTML = "";
 
       snapshot.forEach(doc => {
         let m = doc.data();
 
-        document.getElementById("messages").innerHTML +=
-          "<p><b>"+m.sender+":</b> "+m.text+"</p>";
+        box.innerHTML +=
+          "<p><b>" + m.sender + ":</b> " + m.text + "</p>";
       });
 
     });
@@ -189,4 +238,4 @@ function loadMessages(){
 </script>
 
 </body>
-</html
+</html>
