@@ -2,45 +2,79 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>🔥 Real Dating App FIXED</title>
+  <title>🔥 WhatsApp + Dating ULTRA PRO</title>
 
   <style>
-    body { font-family: Arial; text-align: center; background:#f2f2f2; }
+    body {
+      font-family: Arial;
+      text-align: center;
+      background: #e5ddd5;
+    }
 
     .card {
-      background:white;
-      padding:20px;
-      margin:20px auto;
-      width:300px;
-      border-radius:10px;
-      box-shadow:0 0 10px gray;
+      background: white;
+      padding: 20px;
+      margin: 20px auto;
+      width: 300px;
+      border-radius: 10px;
+      box-shadow: 0 0 10px gray;
     }
 
-    img { width:100%; border-radius:10px; }
+    img { width: 100%; border-radius: 10px; }
 
     button {
-      padding:10px;
-      margin:5px;
-      border:none;
-      border-radius:5px;
-      cursor:pointer;
+      padding: 10px;
+      margin: 5px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
     }
 
-    .like { background:green; color:white; }
-    .skip { background:red; color:white; }
+    .like { background: green; color: white; }
+    .skip { background: red; color: white; }
 
-    #chatBox { display:none; background:white; padding:10px; margin-top:10px; }
+    #chatBox {
+      display: none;
+      background: #efeae2;
+      padding: 10px;
+      border-radius: 10px;
+    }
+
+    #messages {
+      height: 250px;
+      overflow-y: auto;
+      padding: 10px;
+    }
+
+    .msg {
+      padding: 8px 12px;
+      margin: 5px;
+      border-radius: 10px;
+      max-width: 70%;
+      clear: both;
+    }
+
+    .me {
+      background: #dcf8c6;
+      float: right;
+      text-align: right;
+    }
+
+    .other {
+      background: white;
+      float: left;
+    }
   </style>
 </head>
 
 <body>
 
-<h2>🔥 Real Dating App FIXED</h2>
+<h2>🔥 WhatsApp + Dating ULTRA PRO</h2>
 
 <!-- LOGIN -->
 <div id="login">
-  <input id="username" placeholder="Enter your name"><br><br>
-  <input id="userpic" placeholder="Enter image URL"><br><br>
+  <input id="username" placeholder="Enter name"><br><br>
+  <input type="file" accept="image/*" capture="camera" id="cameraPic"><br><br>
   <button onclick="login()">Enter App</button>
 </div>
 
@@ -58,7 +92,7 @@
   <div id="chatBox">
     <h3>💬 Chat</h3>
 
-    <div id="messages" style="height:200px; overflow:auto; border:1px solid #ccc;"></div>
+    <div id="messages"></div>
 
     <input id="msg" placeholder="Type message">
     <button onclick="sendMsg()">Send</button>
@@ -69,38 +103,47 @@
 <!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
 
 <script>
 const firebaseConfig = {
   apiKey: "AIzaSyBGOFD_ukCDkeg5FPf8z_nP7yAzCZXCV7o",
   authDomain: "dating-app-21c55.firebaseapp.com",
   projectId: "dating-app-21c55",
+  storageBucket: "dating-app-21c55.appspot.com"
 };
 
 firebase.initializeApp(firebaseConfig);
+
 const db = firebase.firestore();
+const storage = firebase.storage();
 
-let currentUser = null;
-let users = [];
-let current = 0;
-let matchedUser = null;
-let chatId = null;
+let currentUser=null;
+let users=[];
+let current=0;
+let chatId=null;
 
-// LOGIN
+// 🔥 LOGIN + CAMERA UPLOAD
 async function login(){
 
-  let name = document.getElementById("username").value;
-  let pic = document.getElementById("userpic").value;
+  let name=document.getElementById("username").value;
+  let file=document.getElementById("cameraPic").files[0];
 
-  if(!name){
-    alert("Enter name");
-    return;
+  if(!name){ alert("Enter name"); return; }
+
+  let picURL="https://via.placeholder.com/300";
+
+  if(file){
+    let ref = storage.ref("profiles/" + Date.now() + ".jpg");
+    await ref.put(file);
+    picURL = await ref.getDownloadURL();
   }
 
-  currentUser = {
-    id: Date.now().toString(),
-    name: name,
-    pic: pic
+  currentUser={
+    id:Date.now().toString(),
+    name,
+    pic:picURL,
+    online:true
   };
 
   await db.collection("users").doc(currentUser.id).set(currentUser);
@@ -111,76 +154,65 @@ async function login(){
   loadUsers();
 }
 
-// LOAD USERS
+// 👤 LOAD USERS
 async function loadUsers(){
 
-  users = [];
+  users=[];
 
-  let snap = await db.collection("users").get();
+  let snap=await db.collection("users").get();
 
-  snap.forEach(doc => {
-    let u = doc.data();
-    if(u.id !== currentUser.id){
+  snap.forEach(doc=>{
+    let u=doc.data();
+    if(u.id!==currentUser.id){
       users.push(u);
     }
   });
 
-  if(users.length === 0){
-    alert("No users found");
-    return;
-  }
-
   showProfile();
 }
 
-// SHOW PROFILE
+// 👤 SHOW PROFILE
 function showProfile(){
 
-  if(users.length === 0) return;
+  let user=users[current];
 
-  let user = users[current];
-
-  document.getElementById("profileName").innerText = user.name;
+  document.getElementById("profileName").innerText =
+    user.name + (user.online ? " 🟢":" ⚪");
 
   document.getElementById("profilePic").src =
     user.pic || "https://via.placeholder.com/300";
 }
 
-// NEXT PROFILE
+// ➡ NEXT
 function next(){
-
-  if(users.length === 0) return;
-
-  current = (current + 1) % users.length;
+  current=(current+1)%users.length;
   showProfile();
 }
 
-// ❤️ LIKE (FIXED MUTUAL MATCH)
+// ❤️ MATCH SYSTEM
 async function like(){
 
-  matchedUser = users[current];
+  let matchedUser=users[current];
 
-  // save like
   await db.collection("likes").add({
-    from: currentUser.id,
-    to: matchedUser.id
+    from:currentUser.id,
+    to:matchedUser.id
   });
 
-  // check mutual like
-  let snap = await db.collection("likes")
+  let snap=await db.collection("likes")
     .where("from","==",matchedUser.id)
     .where("to","==",currentUser.id)
     .get();
 
   if(!snap.empty){
 
-    chatId = [currentUser.id, matchedUser.id].sort().join("_");
+    chatId=[currentUser.id,matchedUser.id].sort().join("_");
 
     await db.collection("matches").doc(chatId).set({
-      users:[currentUser.id, matchedUser.id]
+      users:[currentUser.id,matchedUser.id]
     });
 
-    alert("🔥 MATCH: " + matchedUser.name);
+    alert("🔥 MATCH!");
 
     document.getElementById("chatBox").style.display="block";
 
@@ -193,48 +225,59 @@ async function like(){
 // 💬 SEND MESSAGE
 function sendMsg(){
 
-  if(!chatId){
-    alert("No match yet!");
-    return;
-  }
+  if(!chatId) return;
 
-  let msg = document.getElementById("msg").value;
-
-  if(msg === "") return;
+  let msg=document.getElementById("msg").value;
+  if(!msg) return;
 
   db.collection("chats")
     .doc(chatId)
     .collection("messages")
     .add({
-      text: msg,
-      sender: currentUser.name,
-      time: Date.now()
+      text:msg,
+      senderId:currentUser.id,
+      time:Date.now()
     });
 
   document.getElementById("msg").value="";
 }
 
-// 💬 REALTIME CHAT
+// 💬 WHATSAPP STYLE CHAT
 function loadMessages(){
 
   db.collection("chats")
     .doc(chatId)
     .collection("messages")
     .orderBy("time")
-    .onSnapshot(snapshot => {
+    .onSnapshot(snap=>{
 
-      let box = document.getElementById("messages");
-      box.innerHTML = "";
+      let box=document.getElementById("messages");
+      box.innerHTML="";
 
-      snapshot.forEach(doc => {
-        let m = doc.data();
+      snap.forEach(doc=>{
+        let m=doc.data();
 
-        box.innerHTML +=
-          "<p><b>" + m.sender + ":</b> " + m.text + "</p>";
+        let cls = (m.senderId===currentUser.id) ? "me" : "other";
+
+        box.innerHTML+=`
+          <div class="msg ${cls}">
+            ${m.text}
+          </div>`;
       });
 
+      box.scrollTop=box.scrollHeight;
     });
 }
+
+// 🟢 OFFLINE STATUS
+window.onbeforeunload=async()=>{
+  if(currentUser){
+    await db.collection("users").doc(currentUser.id).update({
+      online:false
+    });
+  }
+};
+
 </script>
 
 </body>
