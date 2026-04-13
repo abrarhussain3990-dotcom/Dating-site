@@ -1,42 +1,19 @@
-
 <!DOCTYPE html>
 <html>
-<head>
-  <title>Dating App Final</title>
-  <style>
-    body { font-family: Arial; text-align: center; background: #f2f2f2; }
-    input, button { padding: 10px; margin: 5px; }
-    img { width: 80px; height: 80px; border-radius: 50%; }
-    .card { background: white; padding: 10px; margin: 10px; border-radius: 10px; }
-    #messages { height: 200px; overflow-y: scroll; background: white; padding: 10px; }
-  </style>
-</head>
-
 <body>
 
-<h2>Dating App ❤️</h2>
+<h2>Fixed App ✅</h2>
 
-<input type="text" id="name" placeholder="Enter name"><br>
-<input type="file" id="photo"><br>
-<button id="enterBtn">Enter App</button>
+<input id="name" placeholder="Name"><br><br>
+<input type="file" id="photo"><br><br>
+<button onclick="go()">Enter</button>
 
-<p id="status"></p>
-
-<hr>
-
-<div id="users"></div>
-
-<div id="chatBox" style="display:none;">
-  <h3 id="chatWith"></h3>
-  <div id="messages"></div>
-  <input type="text" id="msg" placeholder="Type message">
-  <button id="sendBtn">Send</button>
-</div>
+<p id="s"></p>
 
 <script type="module">
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBGOFD_ukCDkeg5FPf8z_nP7yAzCZXCV7o",
@@ -50,102 +27,52 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-let myName = "";
-let currentChat = "";
+window.go = async function(){
 
-// CREATE USER
-document.getElementById("enterBtn").addEventListener("click", async () => {
-
+  const s = document.getElementById("s");
   const name = document.getElementById("name").value;
   const file = document.getElementById("photo").files[0];
 
-  if (!name || !file) {
-    document.getElementById("status").innerText = "❌ Name aur photo zaroori hain";
+  if(!name || !file){
+    s.innerText = "❌ Name + photo required";
     return;
   }
 
-  document.getElementById("status").innerText = "⏳ Entering...";
+  s.innerText = "⏳ Reading file...";
 
   const reader = new FileReader();
 
-  reader.onload = async function () {
-    await addDoc(collection(db, "users"), {
-      name: name,
-      photo: reader.result
-    });
+  reader.onload = async () => {
+    try {
+      s.innerText = "⏳ Sending to Firebase...";
 
-    myName = name;
-    document.getElementById("status").innerText = "✅ Entered!";
-    loadUsers();
+      // TIMEOUT PROTECTION
+      const timeout = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("Timeout ❌ Firebase slow/blocked")), 5000)
+      );
+
+      await Promise.race([
+        addDoc(collection(db, "users"), {
+          name: name,
+          photo: reader.result
+        }),
+        timeout
+      ]);
+
+      s.innerText = "✅ SUCCESS BRO 🔥";
+
+    } catch(e){
+      s.innerText = "❌ ERROR: " + e.message;
+      console.error(e);
+    }
+  };
+
+  reader.onerror = () => {
+    s.innerText = "❌ File read error";
   };
 
   reader.readAsDataURL(file);
-
-});
-
-// LOAD USERS
-async function loadUsers() {
-  const snap = await getDocs(collection(db, "users"));
-  const usersDiv = document.getElementById("users");
-  usersDiv.innerHTML = "";
-
-  snap.forEach(doc => {
-    const user = doc.data();
-
-    if (user.name !== myName) {
-      usersDiv.innerHTML += `
-        <div class="card">
-          <img src="${user.photo}">
-          <h3>${user.name}</h3>
-          <button onclick="startChat('${user.name}')">Match ❤️</button>
-        </div>
-      `;
-    }
-  });
-}
-
-// START CHAT
-window.startChat = function(name) {
-  currentChat = name;
-
-  document.getElementById("chatBox").style.display = "block";
-  document.getElementById("chatWith").innerText = "Chat with " + name;
-
-  const chatId = [myName, name].sort().join("_");
-
-  const q = query(collection(db, "messages"), orderBy("time"));
-
-  onSnapshot(q, (snapshot) => {
-    const box = document.getElementById("messages");
-    box.innerHTML = "";
-
-    snapshot.forEach(doc => {
-      const data = doc.data();
-      if (data.chatId === chatId) {
-        box.innerHTML += `<p><b>${data.sender}:</b> ${data.text}</p>`;
-      }
-    });
-  });
 };
-
-// SEND MESSAGE
-document.getElementById("sendBtn").addEventListener("click", async () => {
-
-  const msg = document.getElementById("msg").value;
-  if (!msg) return;
-
-  const chatId = [myName, currentChat].sort().join("_");
-
-  await addDoc(collection(db, "messages"), {
-    chatId: chatId,
-    sender: myName,
-    text: msg,
-    time: Date.now()
-  });
-
-  document.getElementById("msg").value = "";
-
-});
 
 </script>
 
