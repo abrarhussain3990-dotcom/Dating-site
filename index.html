@@ -1,59 +1,62 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>🔥 Dating App</title>
+  <title>🔥 Real Dating App</title>
   <style>
-    body { font-family: Arial; text-align: center; background: #f2f2f2; }
+    body { font-family: Arial; text-align: center; background:#f2f2f2; }
 
     .card {
-      background: white;
-      padding: 20px;
-      margin: 20px auto;
-      width: 300px;
-      border-radius: 10px;
-      box-shadow: 0 0 10px gray;
+      background:white;
+      padding:20px;
+      margin:20px auto;
+      width:300px;
+      border-radius:10px;
+      box-shadow:0 0 10px gray;
     }
 
-    img { width: 100%; border-radius: 10px; }
+    img { width:100%; border-radius:10px; }
 
     button {
-      padding: 10px;
-      margin: 5px;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-    }
-
-    .like { background: green; color: white; }
-    .skip { background: red; color: white; }
-
-    #chatBox {
-      display:none;
-      background:white;
       padding:10px;
-      margin-top:20px;
+      margin:5px;
+      border:none;
+      border-radius:5px;
+      cursor:pointer;
     }
+
+    .like { background:green; color:white; }
+    .skip { background:red; color:white; }
+
+    #chatBox { display:none; background:white; padding:10px; }
   </style>
 </head>
 <body>
 
-<h2>🔥 Dating App</h2>
+<h2>🔥 Real Dating App</h2>
 
-<div class="card">
-  <img id="profilePic">
-  <h3 id="profileName"></h3>
+<!-- LOGIN -->
+<div id="login">
+  <input id="username" placeholder="Enter your name">
+  <input id="userpic" placeholder="Enter image URL">
+  <button onclick="login()">Enter App</button>
 </div>
 
-<button class="like" onclick="like()">❤️ Like</button>
-<button class="skip" onclick="next()">❌ Skip</button>
-<br>
-<button onclick="addUser()">➕ Add Yourself</button>
+<!-- APP -->
+<div id="app" style="display:none;">
+  <div class="card">
+    <img id="profilePic">
+    <h3 id="profileName"></h3>
+  </div>
 
-<div id="chatBox">
-  <h3>💬 Chat</h3>
-  <div id="messages"></div>
-  <input id="msg" placeholder="Type message...">
-  <button onclick="sendMsg()">Send</button>
+  <button class="like" onclick="like()">❤️ Like</button>
+  <button class="skip" onclick="next()">❌ Skip</button>
+
+  <div id="chatBox">
+    <h3>💬 Chat</h3>
+    <div id="messages" style="height:200px; overflow:auto;"></div>
+    <input id="msg">
+    <button onclick="sendMsg()">Send</button>
+  </div>
 </div>
 
 <!-- Firebase -->
@@ -70,100 +73,120 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
-// Fake Profiles (20+)
-let fakeProfiles = [];
-for(let i=1;i<=30;i++){
-  fakeProfiles.push({
-    name: "User " + i,
-    pic: "https://i.pravatar.cc/300?img=" + i
-  });
-}
-
-let profiles = [];
+let currentUser = null;
+let users = [];
 let current = 0;
 let matchedUser = null;
+let chatId = null;
 
-// Load users
+// LOGIN
+async function login(){
+  let name = document.getElementById("username").value;
+  let pic = document.getElementById("userpic").value;
+
+  if(!name || !pic){
+    alert("Enter details");
+    return;
+  }
+
+  currentUser = {
+    id: Date.now().toString(),
+    name,
+    pic
+  };
+
+  await db.collection("users").doc(currentUser.id).set(currentUser);
+
+  document.getElementById("login").style.display="none";
+  document.getElementById("app").style.display="block";
+
+  loadUsers();
+}
+
+// LOAD USERS
 async function loadUsers(){
-  profiles = [...fakeProfiles];
+  users = [];
 
-  let snapshot = await db.collection("users").get();
-  snapshot.forEach(doc => profiles.push(doc.data()));
+  let snap = await db.collection("users").get();
+  snap.forEach(doc => {
+    let u = doc.data();
+    if(u.id !== currentUser.id){
+      users.push(u);
+    }
+  });
 
-  shuffle(profiles);
   showProfile();
 }
 
-// Shuffle
-function shuffle(arr){
-  for(let i=arr.length-1;i>0;i--){
-    let j = Math.floor(Math.random()*(i+1));
-    [arr[i],arr[j]]=[arr[j],arr[i]];
-  }
-}
-
-// Show profile
+// SHOW PROFILE
 function showProfile(){
-  document.getElementById("profileName").innerText = profiles[current].name;
-  document.getElementById("profilePic").src = profiles[current].pic;
+  if(users.length===0) return;
+
+  document.getElementById("profileName").innerText = users[current].name;
+  document.getElementById("profilePic").src = users[current].pic;
 }
 
-// Next
+// NEXT
 function next(){
-  current = (current + 1) % profiles.length;
+  current = (current + 1) % users.length;
   showProfile();
 }
 
-// Match logic (realistic)
-function like(){
-  let chance = Math.random();
+// MATCH SYSTEM (REAL)
+async function like(){
+  matchedUser = users[current];
 
-  if(chance < 0.4){
-    matchedUser = profiles[current];
-    alert("🔥 Match with " + matchedUser.name);
-    document.getElementById("chatBox").style.display = "block";
-  } else {
-    alert("❌ No match");
-  }
+  let matchId = currentUser.id + "_" + matchedUser.id;
+
+  await db.collection("matches").doc(matchId).set({
+    users:[currentUser.id, matchedUser.id]
+  });
+
+  chatId = matchId;
+
+  alert("🔥 Match with " + matchedUser.name);
+
+  document.getElementById("chatBox").style.display="block";
+
+  loadMessages();
 
   next();
 }
 
-// Chat
+// SEND MESSAGE
 function sendMsg(){
   let msg = document.getElementById("msg").value;
   if(msg==="") return;
 
-  document.getElementById("messages").innerHTML += "<p><b>You:</b> "+msg+"</p>";
+  db.collection("chats").doc(chatId).collection("messages").add({
+    text: msg,
+    sender: currentUser.name,
+    time: Date.now()
+  });
+
   document.getElementById("msg").value="";
-
-  let replyChance = Math.random();
-
-  if(replyChance < 0.7){
-    let delay = Math.floor(Math.random()*5000)+1000;
-
-    setTimeout(()=>{
-      let replies = ["Hi 😄","How are you?","Nice to meet you","Haha 😂","Tell me more","Where are you from?"];
-      let reply = replies[Math.floor(Math.random()*replies.length)];
-
-      document.getElementById("messages").innerHTML += "<p><b>"+matchedUser.name+":</b> "+reply+"</p>";
-    },delay);
-  }
 }
 
-// Add real user
-function addUser(){
-  let name = prompt("Enter your name");
-  let pic = prompt("Enter image URL");
+// LOAD LIVE CHAT
+function loadMessages(){
+  db.collection("chats")
+    .doc(chatId)
+    .collection("messages")
+    .orderBy("time")
+    .onSnapshot(snapshot => {
 
-  if(!name || !pic) return;
+      document.getElementById("messages").innerHTML="";
 
-  db.collection("users").add({name, pic});
-  alert("✅ Added! Reload app");
+      snapshot.forEach(doc => {
+        let m = doc.data();
+
+        document.getElementById("messages").innerHTML +=
+          "<p><b>"+m.sender+":</b> "+m.text+"</p>";
+      });
+
+    });
 }
-
-loadUsers();
 </script>
 
 </body>
-</html>
+</html
