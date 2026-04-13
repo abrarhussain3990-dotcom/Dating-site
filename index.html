@@ -1,6 +1,165 @@
 <!DOCTYPE html>
 <html>
 <head>
+<title>Simple Dating</title>
+<style>
+body{font-family:Arial;text-align:center;background:#eee}
+.card{background:#fff;padding:20px;margin:20px auto;width:300px;border-radius:10px}
+img{width:100%;border-radius:10px}
+button{padding:10px;margin:5px}
+#chat{display:none}
+.msg{margin:5px;padding:5px;border-radius:5px}
+.me{background:#a0e7a0}
+.other{background:#fff}
+</style>
+</head>
+
+<body>
+
+<h2>Dating App ❤️</h2>
+
+<div id="app">
+<div class="card">
+<img id="pic">
+<h3 id="name"></h3>
+</div>
+
+<button onclick="like()">❤️ Like</button>
+<button onclick="next()">❌ Skip</button>
+
+<div id="chat">
+<h3>Chat</h3>
+<div id="msgs"></div>
+<input id="msg">
+<button onclick="send()">Send</button>
+</div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
+<script>
+const firebaseConfig={
+apiKey:"AIzaSy...",
+authDomain:"dating-app-21c55.firebaseapp.com",
+projectId:"dating-app-21c55"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db=firebase.firestore();
+
+let me,users=[],i=0,chatId=null,unsub=null;
+
+// AUTO PROFILE
+if(!localStorage.getItem("me")){
+let u={
+id:Math.random().toString(36).substr(2,9),
+name:"User"+Math.floor(Math.random()*1000),
+pic:"https://randomuser.me/api/portraits/men/"+Math.floor(Math.random()*50)+".jpg"
+};
+localStorage.setItem("me",JSON.stringify(u));
+}
+me=JSON.parse(localStorage.getItem("me"));
+
+// SAVE ME
+db.collection("users").doc(me.id).set(me);
+
+// FAKE USERS (once)
+let fake=[
+{name:"Ali",pic:"https://randomuser.me/api/portraits/men/1.jpg"},
+{name:"Sara",pic:"https://randomuser.me/api/portraits/women/2.jpg"},
+{name:"John",pic:"https://randomuser.me/api/portraits/men/3.jpg"}
+];
+
+fake.forEach(f=>{
+let id="fake_"+f.name;
+db.collection("users").doc(id).set({...f,id});
+});
+
+// LOAD USERS
+db.collection("users").onSnapshot(s=>{
+users=[];
+s.forEach(d=>{
+let u=d.data();
+if(u.id!==me.id) users.push(u);
+});
+show();
+});
+
+// SHOW
+function show(){
+if(users.length==0) return;
+let u=users[i%users.length];
+document.getElementById("name").innerText=u.name;
+document.getElementById("pic").src=u.pic;
+}
+
+// NEXT
+function next(){
+i++;
+show();
+}
+
+// LIKE
+async function like(){
+let u=users[i%users.length];
+
+await db.collection("likes").add({
+from:me.id,to:u.id
+});
+
+let snap=await db.collection("likes")
+.where("from","==",u.id)
+.where("to","==",me.id).get();
+
+if(!snap.empty){
+chatId=[me.id,u.id].sort().join("_");
+openChat();
+alert("MATCH!");
+}
+
+next();
+}
+
+// CHAT
+function openChat(){
+document.getElementById("chat").style.display="block";
+
+if(unsub)unsub();
+
+unsub=db.collection("chats").doc(chatId)
+.collection("msgs")
+.orderBy("time")
+.onSnapshot(s=>{
+let box=document.getElementById("msgs");
+box.innerHTML="";
+s.forEach(d=>{
+let m=d.data();
+let cls=m.from===me.id?"me":"other";
+box.innerHTML+=`<div class="msg ${cls}">${m.text}</div>`;
+});
+});
+}
+
+// SEND
+function send(){
+let text=document.getElementById("msg").value;
+if(!text) return;
+
+db.collection("chats").doc(chatId)
+.collection("msgs")
+.add({
+text,from:me.id,time:Date.now()
+});
+
+document.getElementById("msg").value="";
+}
+</script>
+
+</body>
+</html><!DOCTYPE html>
+<html>
+<head>
   <title>Dating App</title>
   <style>
     body { font-family: Arial; text-align: center; background:#eee; }
