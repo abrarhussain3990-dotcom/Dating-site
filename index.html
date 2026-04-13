@@ -2,7 +2,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>🔥 WhatsApp + Dating ULTRA PRO</title>
+  <title>🔥 WhatsApp + Dating ULTRA PRO FIXED</title>
 
   <style>
     body {
@@ -54,22 +54,14 @@
       clear: both;
     }
 
-    .me {
-      background: #dcf8c6;
-      float: right;
-      text-align: right;
-    }
-
-    .other {
-      background: white;
-      float: left;
-    }
+    .me { background: #dcf8c6; float: right; text-align: right; }
+    .other { background: white; float: left; }
   </style>
 </head>
 
 <body>
 
-<h2>🔥 WhatsApp + Dating ULTRA PRO</h2>
+<h2>🔥 WhatsApp + Dating FIXED</h2>
 
 <!-- LOGIN -->
 <div id="login">
@@ -118,55 +110,71 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 const storage = firebase.storage();
 
-let currentUser=null;
-let users=[];
-let current=0;
-let chatId=null;
+let currentUser = null;
+let users = [];
+let current = 0;
+let chatId = null;
 
-// 🔥 LOGIN + CAMERA UPLOAD
+// 🔥 FIXED LOGIN (MAIN BUG FIX)
 async function login(){
 
-  let name=document.getElementById("username").value;
-  let file=document.getElementById("cameraPic").files[0];
+  try {
 
-  if(!name){ alert("Enter name"); return; }
+    let name = document.getElementById("username").value;
+    let file = document.getElementById("cameraPic").files[0];
 
-  let picURL="https://via.placeholder.com/300";
+    if(!name){
+      alert("Enter name");
+      return;
+    }
 
-  if(file){
-    let ref = storage.ref("profiles/" + Date.now() + ".jpg");
-    await ref.put(file);
-    picURL = await ref.getDownloadURL();
+    let picURL = "https://via.placeholder.com/300";
+
+    // camera upload safe
+    if(file){
+      let ref = storage.ref("profiles/" + Date.now() + ".jpg");
+      await ref.put(file);
+      picURL = await ref.getDownloadURL();
+    }
+
+    currentUser = {
+      id: Date.now().toString(),
+      name,
+      pic: picURL,
+      online: true
+    };
+
+    await db.collection("users").doc(currentUser.id).set(currentUser);
+
+    document.getElementById("login").style.display = "none";
+    document.getElementById("app").style.display = "block";
+
+    loadUsers();
+
+  } catch (err) {
+    console.error("LOGIN ERROR:", err);
+    alert("Firebase error! Rules check karo 🔥");
   }
-
-  currentUser={
-    id:Date.now().toString(),
-    name,
-    pic:picURL,
-    online:true
-  };
-
-  await db.collection("users").doc(currentUser.id).set(currentUser);
-
-  document.getElementById("login").style.display="none";
-  document.getElementById("app").style.display="block";
-
-  loadUsers();
 }
 
-// 👤 LOAD USERS
+// 👤 LOAD USERS (FIXED)
 async function loadUsers(){
 
-  users=[];
+  users = [];
 
-  let snap=await db.collection("users").get();
+  let snap = await db.collection("users").get();
 
   snap.forEach(doc=>{
-    let u=doc.data();
-    if(u.id!==currentUser.id){
+    let u = doc.data();
+    if(u.id !== currentUser.id){
       users.push(u);
     }
   });
+
+  if(users.length === 0){
+    alert("No users found");
+    return;
+  }
 
   showProfile();
 }
@@ -174,7 +182,7 @@ async function loadUsers(){
 // 👤 SHOW PROFILE
 function showProfile(){
 
-  let user=users[current];
+  let user = users[current];
 
   document.getElementById("profileName").innerText =
     user.name + (user.online ? " 🟢":" ⚪");
@@ -185,36 +193,37 @@ function showProfile(){
 
 // ➡ NEXT
 function next(){
-  current=(current+1)%users.length;
+  if(users.length === 0) return;
+  current = (current + 1) % users.length;
   showProfile();
 }
 
 // ❤️ MATCH SYSTEM
 async function like(){
 
-  let matchedUser=users[current];
+  let matchedUser = users[current];
 
   await db.collection("likes").add({
-    from:currentUser.id,
-    to:matchedUser.id
+    from: currentUser.id,
+    to: matchedUser.id
   });
 
-  let snap=await db.collection("likes")
+  let snap = await db.collection("likes")
     .where("from","==",matchedUser.id)
     .where("to","==",currentUser.id)
     .get();
 
   if(!snap.empty){
 
-    chatId=[currentUser.id,matchedUser.id].sort().join("_");
+    chatId = [currentUser.id, matchedUser.id].sort().join("_");
 
     await db.collection("matches").doc(chatId).set({
-      users:[currentUser.id,matchedUser.id]
+      users:[currentUser.id, matchedUser.id]
     });
 
     alert("🔥 MATCH!");
 
-    document.getElementById("chatBox").style.display="block";
+    document.getElementById("chatBox").style.display = "block";
 
     loadMessages();
   }
@@ -227,53 +236,53 @@ function sendMsg(){
 
   if(!chatId) return;
 
-  let msg=document.getElementById("msg").value;
+  let msg = document.getElementById("msg").value;
   if(!msg) return;
 
   db.collection("chats")
     .doc(chatId)
     .collection("messages")
     .add({
-      text:msg,
-      senderId:currentUser.id,
-      time:Date.now()
+      text: msg,
+      senderId: currentUser.id,
+      time: Date.now()
     });
 
-  document.getElementById("msg").value="";
+  document.getElementById("msg").value = "";
 }
 
-// 💬 WHATSAPP STYLE CHAT
+// 💬 CHAT FIXED
 function loadMessages(){
 
   db.collection("chats")
     .doc(chatId)
     .collection("messages")
     .orderBy("time")
-    .onSnapshot(snap=>{
+    .onSnapshot(snap => {
 
-      let box=document.getElementById("messages");
-      box.innerHTML="";
+      let box = document.getElementById("messages");
+      box.innerHTML = "";
 
       snap.forEach(doc=>{
-        let m=doc.data();
+        let m = doc.data();
 
-        let cls = (m.senderId===currentUser.id) ? "me" : "other";
+        let cls = (m.senderId === currentUser.id) ? "me" : "other";
 
-        box.innerHTML+=`
+        box.innerHTML += `
           <div class="msg ${cls}">
             ${m.text}
           </div>`;
       });
 
-      box.scrollTop=box.scrollHeight;
+      box.scrollTop = box.scrollHeight;
     });
 }
 
-// 🟢 OFFLINE STATUS
-window.onbeforeunload=async()=>{
+// 🟢 OFFLINE STATUS FIX
+window.onbeforeunload = async () => {
   if(currentUser){
     await db.collection("users").doc(currentUser.id).update({
-      online:false
+      online: false
     });
   }
 };
