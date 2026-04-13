@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>🔥 Dating + Chat FINAL FIX</title>
+  <title>🔥 Real Dating + Chat</title>
 
   <style>
-    body { font-family: Arial; text-align: center; background:#e5ddd5; }
+    body { font-family: Arial; background:#e5ddd5; text-align:center; }
 
     .card {
       background:white;
@@ -18,11 +18,8 @@
     img { width:100%; border-radius:10px; }
 
     button {
-      padding:10px;
-      margin:5px;
-      border:none;
-      border-radius:5px;
-      cursor:pointer;
+      padding:10px; margin:5px;
+      border:none; border-radius:5px;
     }
 
     .like { background:green; color:white; }
@@ -32,31 +29,28 @@
       display:none;
       background:#efeae2;
       padding:10px;
-      border-radius:10px;
-    }
-
-    #messages {
-      height:250px;
-      overflow:auto;
-      padding:10px;
     }
 
     .msg { padding:8px; margin:5px; border-radius:10px; max-width:70%; }
     .me { background:#dcf8c6; margin-left:auto; }
     .other { background:white; margin-right:auto; }
+
+    #messages { height:250px; overflow:auto; }
   </style>
 </head>
 
 <body>
 
-<h2>🔥 FINAL WORKING APP</h2>
+<h2>🔥 REAL APP</h2>
 
+<!-- LOGIN -->
 <div id="login">
   <input id="username" placeholder="Enter name"><br><br>
   <input type="file" id="cameraPic"><br><br>
   <button onclick="login()">Enter App</button>
 </div>
 
+<!-- APP -->
 <div id="app" style="display:none;">
 
   <div class="card">
@@ -82,9 +76,9 @@
 
 <script>
 const firebaseConfig = {
-  apiKey: "AIzaSyBGOFD_ukCDkeg5FPf8z_nP7yAzCZXCV7o",
+  apiKey: "AIzaSy...",
   authDomain: "dating-app-21c55.firebaseapp.com",
-  projectId: "dating-app-21c55",
+  projectId: "dating-app-21c55"
 };
 
 firebase.initializeApp(firebaseConfig);
@@ -92,7 +86,7 @@ const db = firebase.firestore();
 
 let currentUser, users=[], current=0, chatId=null;
 
-// 🔥 LOGIN (NO CRASH)
+// LOGIN
 async function login(){
 
   let name=document.getElementById("username").value.trim();
@@ -119,7 +113,7 @@ async function login(){
   loadUsers();
 }
 
-// 👥 REALTIME USERS
+// REALTIME USERS
 function loadUsers(){
 
   db.collection("users").onSnapshot(snap=>{
@@ -137,7 +131,7 @@ function loadUsers(){
   });
 }
 
-// 👤 SHOW
+// SHOW PROFILE
 function showProfile(){
   let u=users[current];
   document.getElementById("profileName").innerText=u.name;
@@ -146,71 +140,88 @@ function showProfile(){
 
 // NEXT
 function next(){
-  if(users.length===0) return;
   current=(current+1)%users.length;
   showProfile();
 }
 
-// ❤️ MATCH (AUTO FOR TEST)
+// ❤️ REAL MATCH SYSTEM
 async function like(){
 
   let u=users[current];
 
-  chatId=[currentUser.id,u.id].sort().join("_");
+  // save like
+  await db.collection("likes").add({
+    from:currentUser.id,
+    to:u.id
+  });
 
-  document.getElementById("chatBox").style.display="block";
+  // check reverse like
+  let snap=await db.collection("likes")
+    .where("from","==",u.id)
+    .where("to","==",currentUser.id)
+    .get();
 
-  loadMessages();
+  if(!snap.empty){
+
+    chatId=[currentUser.id,u.id].sort().join("_");
+
+    document.getElementById("chatBox").style.display="block";
+
+    loadMessages();
+
+    alert("🔥 MATCH with "+u.name);
+  }
 
   next();
 }
 
-// 💬 SEND
+// SEND MESSAGE
 function sendMsg(){
 
-  if(!chatId) return;
+  if(!chatId){
+    alert("Match first!");
+    return;
+  }
 
   let msg=document.getElementById("msg").value;
   if(!msg) return;
 
   db.collection("chats")
-  .doc(chatId)
-  .collection("messages")
-  .add({
-    text:msg,
-    senderId:currentUser.id,
-    time:Date.now()
-  });
+    .doc(chatId)
+    .collection("messages")
+    .add({
+      text:msg,
+      senderId:currentUser.id,
+      time:Date.now()
+    });
 
   document.getElementById("msg").value="";
 }
 
-// 💬 LIVE CHAT
+// CHAT
 function loadMessages(){
 
   db.collection("chats")
-  .doc(chatId)
-  .collection("messages")
-  .orderBy("time")
-  .onSnapshot(snap=>{
+    .doc(chatId)
+    .collection("messages")
+    .orderBy("time")
+    .onSnapshot(snap=>{
 
-    let box=document.getElementById("messages");
-    box.innerHTML="";
+      let box=document.getElementById("messages");
+      box.innerHTML="";
 
-    snap.forEach(doc=>{
-      let m=doc.data();
+      snap.forEach(doc=>{
+        let m=doc.data();
+        let cls=(m.senderId===currentUser.id)?"me":"other";
 
-      let cls=(m.senderId===currentUser.id)?"me":"other";
+        box.innerHTML+=`
+        <div class="msg ${cls}">${m.text}</div>`;
+      });
 
-      box.innerHTML+=`
-      <div class="msg ${cls}">${m.text}</div>`;
+      box.scrollTop=box.scrollHeight;
     });
-
-    box.scrollTop=box.scrollHeight;
-  });
 }
 </script>
 
 </body>
 </html>
-
