@@ -1,279 +1,11 @@
-<!DOCTYPE html>
-<html>
-<head>
-  <title>💖 Dating App</title>
-
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-  <style>
-    body { font-family: Arial; margin: 0; background: #ece5dd; }
-
-    header {
-      background: #ff4d6d;
-      color: white;
-      padding: 15px;
-      text-align: center;
-      font-weight: bold;
-    }
-
-    .top {
-      padding: 10px;
-      display: flex;
-      gap: 5px;
-      background: #fff;
-    }
-
-    .top input { flex: 1; padding: 10px; }
-
-    .container {
-      display: flex;
-      height: calc(100vh - 100px);
-    }
-
-    #usersPanel {
-      width: 35%;
-      background: white;
-      overflow-y: auto;
-      border-right: 1px solid #ddd;
-    }
-
-    #usersPanel div {
-      padding: 12px;
-      border-bottom: 1px solid #eee;
-      cursor: pointer;
-    }
-
-    #usersPanel div.active { background: #ffe0e6; }
-
-    .online { color: green; font-size: 11px; }
-    .offline { color: gray; font-size: 11px; }
-
-    .lastMsg {
-      font-size: 12px;
-      color: #555;
-    }
-
-    .badge {
-      background: red;
-      color: white;
-      font-size: 10px;
-      padding: 2px 6px;
-      border-radius: 10px;
-      float: right;
-    }
-
-    #chatPanel {
-      width: 65%;
-      display: flex;
-      flex-direction: column;
-    }
-
-    #chatHeader {
-      padding: 10px;
-      background: #f0f0f0;
-      border-bottom: 1px solid #ddd;
-    }
-
-    #chat {
-      flex: 1;
-      overflow-y: auto;
-      padding: 10px;
-      display: flex;
-      flex-direction: column;
-    }
-
-    .msg {
-      padding: 8px 12px;
-      margin: 5px;
-      border-radius: 10px;
-      max-width: 70%;
-    }
-
-    .me {
-      background: #ff4d6d;
-      color: white;
-      align-self: flex-end;
-    }
-
-    .other {
-      background: #fff;
-      align-self: flex-start;
-    }
-
-    .time {
-      font-size: 10px;
-      opacity: 0.6;
-      display: block;
-      margin-top: 3px;
-    }
-
-    #inputArea {
-      display: flex;
-      padding: 10px;
-      background: #f0f0f0;
-    }
-
-    #msg {
-      flex: 1;
-      padding: 10px;
-      border-radius: 20px;
-      border: 1px solid #ccc;
-    }
-
-    button {
-      padding: 10px 15px;
-      border: none;
-      border-radius: 20px;
-      background: #ff4d6d;
-      color: white;
-      cursor: pointer;
-    }
-
-    @media (max-width: 768px) {
-      .container { flex-direction: column; }
-      #usersPanel { width: 100%; height: 40%; }
-      #chatPanel { width: 100%; height: 60%; }
-    }
-  </style>
-</head>
-
-<body>
-
-<header>💖 Dating App</header>
-
-<div class="top">
-  <input id="name" placeholder="Enter your name">
-  <button onclick="addUser()">Enter</button>
-</div>
-
-<div class="container">
-  <div id="usersPanel"></div>
-
-  <div id="chatPanel">
-    <div id="chatHeader">Select user</div>
-    <div id="chat"></div>
-
-    <div id="inputArea">
-      <input id="msg" placeholder="Type message">
-      <button onclick="sendMsg()">Send</button>
-    </div>
-  </div>
-</div>
-
-<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
-
 <script>
-const firebaseConfig = {
-  apiKey: "AIzaSyBy5mWexTkc05_NNEBo6Kore8Ur1YtC6cU",
-  authDomain: "lovedatingapp-70584.firebaseapp.com",
-  projectId: "lovedatingapp-70584",
-};
-
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
-
+// EXISTING VARIABLES SAME
 let currentUser = "";
 let selectedUser = "";
 let unsubscribeChat = null;
+let typingTimeout = null;
 
-// TIME
-function formatTime(ts) {
-  let d = new Date(ts);
-  return d.getHours() + ":" + String(d.getMinutes()).padStart(2, "0");
-}
-
-// ADD USER
-function addUser() {
-  let nameInput = document.getElementById("name");
-  let name = nameInput.value.trim();
-
-  if (!name) return alert("Enter name!");
-  if (currentUser) return alert("Already logged in!");
-
-  currentUser = name;
-
-  db.collection("users").doc(name).set({
-    name,
-    online: true,
-    lastSeen: Date.now()
-  });
-
-  nameInput.disabled = true;
-  alert("Welcome " + name);
-}
-
-// OFFLINE
-window.addEventListener("beforeunload", () => {
-  if (currentUser) {
-    db.collection("users").doc(currentUser).update({
-      online: false,
-      lastSeen: Date.now()
-    });
-  }
-});
-
-// USERS + LAST MESSAGE + UNREAD
-db.collection("users").onSnapshot(async snapshot => {
-  let usersDiv = document.getElementById("usersPanel");
-  usersDiv.innerHTML = "";
-
-  for (let doc of snapshot.docs) {
-    let u = doc.data();
-
-    if (u.name !== currentUser) {
-
-      let lastMsg = "";
-      let unread = 0;
-
-      let msgs = await db.collection("messages")
-        .orderBy("time", "desc")
-        .limit(20)
-        .get();
-
-      msgs.forEach(m => {
-        let data = m.data();
-
-        if (
-          (data.from === currentUser && data.to === u.name) ||
-          (data.from === u.name && data.to === currentUser)
-        ) {
-          if (!lastMsg) lastMsg = data.text;
-        }
-
-        if (data.from === u.name && data.to === currentUser) {
-          unread++;
-        }
-      });
-
-      let status = u.online
-        ? `<span class="online">🟢 Online</span>`
-        : `<span class="offline">Last seen</span>`;
-
-      usersDiv.innerHTML += `
-        <div onclick="selectUser('${u.name}', this)">
-          <b>${u.name}</b>
-          ${unread ? `<span class="badge">${unread}</span>` : ""}
-          <br>${status}
-          <div class="lastMsg">${lastMsg}</div>
-        </div>
-      `;
-    }
-  }
-});
-
-// SELECT USER
-function selectUser(user, el) {
-  selectedUser = user;
-  document.getElementById("chatHeader").innerText = user;
-
-  document.querySelectorAll("#usersPanel div").forEach(d => d.classList.remove("active"));
-  el.classList.add("active");
-
-  loadChat();
-}
-
-// SEND MESSAGE
+// SEND MESSAGE (UPGRADED ✔✔)
 function sendMsg() {
   let msg = document.getElementById("msg").value.trim();
   if (!msg || !selectedUser) return;
@@ -282,18 +14,58 @@ function sendMsg() {
     from: currentUser,
     to: selectedUser,
     text: msg,
-    time: Date.now()
+    time: Date.now(),
+    seen: false
   });
 
   document.getElementById("msg").value = "";
+
+  // STOP TYPING STATUS
+  db.collection("typing").doc(currentUser).set({
+    to: selectedUser,
+    typing: false
+  });
 }
 
-// ENTER KEY
-document.getElementById("msg").addEventListener("keypress", e => {
-  if (e.key === "Enter") sendMsg();
+// TYPING DETECT 🔥
+document.getElementById("msg").addEventListener("input", () => {
+
+  if (!selectedUser) return;
+
+  db.collection("typing").doc(currentUser).set({
+    to: selectedUser,
+    typing: true
+  });
+
+  clearTimeout(typingTimeout);
+
+  typingTimeout = setTimeout(() => {
+    db.collection("typing").doc(currentUser).set({
+      to: selectedUser,
+      typing: false
+    });
+  }, 1000);
 });
 
-// CHAT
+// SHOW TYPING STATUS
+db.collection("typing").onSnapshot(snapshot => {
+  snapshot.forEach(doc => {
+    let t = doc.data();
+
+    if (
+      t.to === currentUser &&
+      doc.id === selectedUser &&
+      t.typing
+    ) {
+      document.getElementById("chatHeader").innerText =
+        selectedUser + " is typing...";
+    } else {
+      document.getElementById("chatHeader").innerText = selectedUser;
+    }
+  });
+});
+
+// CHAT (UPGRADED WITH ✔✔)
 function loadChat() {
 
   if (unsubscribeChat) unsubscribeChat();
@@ -312,12 +84,28 @@ function loadChat() {
           (m.from === currentUser && m.to === selectedUser) ||
           (m.from === selectedUser && m.to === currentUser)
         ) {
+
           let cls = m.from === currentUser ? "me" : "other";
+
+          // ✔✔ logic
+          let status = "";
+          if (m.from === currentUser) {
+            status = m.seen ? "✔✔" : "✔";
+          }
+
+          // MARK AS SEEN
+          if (m.to === currentUser && !m.seen) {
+            db.collection("messages").doc(doc.id).update({
+              seen: true
+            });
+          }
 
           chatDiv.innerHTML += `
             <div class="msg ${cls}">
               ${m.text}
-              <span class="time">${formatTime(m.time)}</span>
+              <span class="time">
+                ${formatTime(m.time)} ${status}
+              </span>
             </div>
           `;
         }
@@ -327,6 +115,3 @@ function loadChat() {
     });
 }
 </script>
-
-</body>
-  </html>
