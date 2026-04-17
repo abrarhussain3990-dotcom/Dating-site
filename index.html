@@ -44,9 +44,6 @@
 
     #usersPanel div.active { background: #ffe0e6; }
 
-    .online { color: green; font-size: 11px; }
-    .offline { color: gray; font-size: 11px; }
-
     #chatPanel {
       width: 65%;
       display: flex;
@@ -72,6 +69,7 @@
       margin: 5px;
       border-radius: 12px;
       max-width: 70%;
+      word-wrap: break-word;
     }
 
     .me {
@@ -92,7 +90,7 @@
     }
 
     img.chat-img {
-      max-width: 150px;
+      max-width: 200px;
       border-radius: 10px;
       margin-top: 5px;
     }
@@ -112,13 +110,15 @@
     }
 
     button {
-      padding: 10px;
+      padding: 10px 15px;
       border: none;
       border-radius: 20px;
       background: #ff4d6d;
       color: white;
       cursor: pointer;
     }
+
+    button:hover { opacity: 0.9; }
 
     @media (max-width: 768px) {
       .container { flex-direction: column; }
@@ -146,10 +146,10 @@
 
     <div id="inputArea">
       <input id="msg" placeholder="Message">
-      <input id="imgUrl" placeholder="Paste image URL (https://...)">
+      <input id="imgUrl" placeholder="Image URL (https://...)">
 
       <button onclick="sendMsg()">Send</button>
-      <button onclick="sendImageURL()">Send Img</button>
+      <button onclick="sendImageURL()">Img</button>
     </div>
   </div>
 </div>
@@ -221,10 +221,10 @@ function selectUser(user, el) {
   loadChat();
 }
 
-// SEND TEXT
+// SEND TEXT (FIXED)
 function sendMsg() {
   let msg = document.getElementById("msg").value.trim();
-  if (!msg || !selectedUser) return;
+  if (!msg || !selectedUser || !currentUser) return;
 
   db.collection("messages").add({
     from: currentUser,
@@ -241,11 +241,10 @@ function sendMsg() {
 function sendImageURL() {
   let url = document.getElementById("imgUrl").value.trim();
 
-  if (!url || !selectedUser) return;
+  if (!url || !selectedUser || !currentUser) return;
 
-  // simple validation
   if (!url.startsWith("http")) {
-    alert("Enter valid image URL!");
+    alert("Invalid Image URL");
     return;
   }
 
@@ -265,15 +264,17 @@ document.getElementById("msg").addEventListener("keypress", function(e) {
   if (e.key === "Enter") sendMsg();
 });
 
-// DELETE
+// DELETE MESSAGE
 function deleteMsg(id) {
-  if (confirm("Delete message?")) {
+  if (confirm("Delete this message?")) {
     db.collection("messages").doc(id).delete();
   }
 }
 
-// CHAT
+// CHAT LOAD (FIXED FLICKER ISSUE)
 function loadChat() {
+
+  if (!selectedUser) return;
 
   if (unsubscribeChat) unsubscribeChat();
 
