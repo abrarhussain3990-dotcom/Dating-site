@@ -1,5 +1,4 @@
-
-      <!DOCTYPE html>
+<!DOCTYPE html>
 <html>
 <head>
   <title>💖 Dating App</title>
@@ -18,19 +17,29 @@
       color: white;
       padding: 15px;
       text-align: center;
-      font-size: 18px;
       font-weight: bold;
+    }
+
+    .top {
+      padding: 10px;
+      display: flex;
+      gap: 5px;
+      background: #fff;
+    }
+
+    .top input {
+      flex: 1;
+      padding: 10px;
     }
 
     .container {
       display: flex;
-      height: 100vh;
+      height: calc(100vh - 100px);
     }
 
-    /* USERS LIST */
     #usersPanel {
       width: 35%;
-      background: #fff;
+      background: white;
       overflow-y: auto;
       border-right: 1px solid #ddd;
     }
@@ -41,14 +50,13 @@
       cursor: pointer;
     }
 
-    #usersPanel div:hover {
-      background: #f5f5f5;
+    #usersPanel div.active {
+      background: #ffe0e6;
     }
 
     .online { color: green; font-size: 11px; }
     .offline { color: gray; font-size: 11px; }
 
-    /* CHAT PANEL */
     #chatPanel {
       width: 65%;
       display: flex;
@@ -59,7 +67,6 @@
       padding: 10px;
       background: #f0f0f0;
       border-bottom: 1px solid #ddd;
-      font-weight: bold;
     }
 
     #chat {
@@ -95,7 +102,6 @@
       margin-top: 3px;
     }
 
-    /* INPUT AREA */
     #inputArea {
       display: flex;
       padding: 10px;
@@ -107,11 +113,9 @@
       padding: 10px;
       border-radius: 20px;
       border: 1px solid #ccc;
-      outline: none;
     }
 
     button {
-      margin-left: 5px;
       padding: 10px 15px;
       border: none;
       border-radius: 20px;
@@ -120,7 +124,6 @@
       cursor: pointer;
     }
 
-    /* MOBILE VIEW */
     @media (max-width: 768px) {
       .container {
         flex-direction: column;
@@ -143,13 +146,12 @@
 
 <header>💖 Dating App</header>
 
-<div style="padding:10px;">
+<div class="top">
   <input id="name" placeholder="Enter your name">
   <button onclick="addUser()">Enter</button>
 </div>
 
 <div class="container">
-
   <div id="usersPanel"></div>
 
   <div id="chatPanel">
@@ -162,7 +164,6 @@
       <button onclick="sendMsg()">Send</button>
     </div>
   </div>
-
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
@@ -170,7 +171,7 @@
 
 <script>
 const firebaseConfig = {
-  apiKey: "AIzaSy...",
+  apiKey: "AIzaSyBy5mWexTkc05_NNEBo6Kore8Ur1YtC6cU",
   authDomain: "lovedatingapp-70584.firebaseapp.com",
   projectId: "lovedatingapp-70584",
 };
@@ -182,14 +183,19 @@ let currentUser = "";
 let selectedUser = "";
 let unsubscribeChat = null;
 
+// TIME
 function formatTime(ts) {
   let d = new Date(ts);
   return d.getHours() + ":" + String(d.getMinutes()).padStart(2, "0");
 }
 
+// ADD USER (FIXED 🔥)
 function addUser() {
-  let name = document.getElementById("name").value.trim();
+  let nameInput = document.getElementById("name");
+  let name = nameInput.value.trim();
+
   if (!name) return alert("Enter name!");
+  if (currentUser) return alert("Already logged in!");
 
   currentUser = name;
 
@@ -199,9 +205,11 @@ function addUser() {
     lastSeen: Date.now()
   });
 
+  nameInput.disabled = true; // 🔥 IMPORTANT FIX
   alert("Welcome " + name);
 }
 
+// OFFLINE
 window.addEventListener("beforeunload", () => {
   if (currentUser) {
     db.collection("users").doc(currentUser).update({
@@ -211,7 +219,7 @@ window.addEventListener("beforeunload", () => {
   }
 });
 
-// USERS
+// USERS LIST
 db.collection("users").onSnapshot(snapshot => {
   let usersDiv = document.getElementById("usersPanel");
   usersDiv.innerHTML = "";
@@ -222,11 +230,11 @@ db.collection("users").onSnapshot(snapshot => {
     if (u.name !== currentUser) {
 
       let status = u.online
-        ? `<span class="online">Online</span>`
+        ? `<span class="online">🟢 Online</span>`
         : `<span class="offline">Last seen</span>`;
 
       usersDiv.innerHTML += `
-        <div onclick="selectUser('${u.name}')">
+        <div onclick="selectUser('${u.name}', this)">
           <b>${u.name}</b><br>${status}
         </div>
       `;
@@ -234,12 +242,18 @@ db.collection("users").onSnapshot(snapshot => {
   });
 });
 
-function selectUser(user) {
+// SELECT USER (HIGHLIGHT 🔥)
+function selectUser(user, el) {
   selectedUser = user;
   document.getElementById("chatHeader").innerText = user;
+
+  document.querySelectorAll("#usersPanel div").forEach(d => d.classList.remove("active"));
+  el.classList.add("active");
+
   loadChat();
 }
 
+// SEND MESSAGE
 function sendMsg() {
   let msg = document.getElementById("msg").value.trim();
   if (!msg || !selectedUser) return;
@@ -254,10 +268,12 @@ function sendMsg() {
   document.getElementById("msg").value = "";
 }
 
+// ENTER KEY
 document.getElementById("msg").addEventListener("keypress", e => {
   if (e.key === "Enter") sendMsg();
 });
 
+// CHAT
 function loadChat() {
 
   if (unsubscribeChat) unsubscribeChat();
