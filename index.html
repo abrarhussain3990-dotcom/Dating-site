@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>💖 Dating App</title>
+  <title>💖 Dating App Pro</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <style>
@@ -54,6 +54,13 @@
       padding: 10px;
       background: #f0f0f0;
       border-bottom: 1px solid #ddd;
+    }
+
+    #typing {
+      font-size: 12px;
+      color: gray;
+      padding: 5px 10px;
+      height: 20px;
     }
 
     #chat {
@@ -118,8 +125,6 @@
       cursor: pointer;
     }
 
-    button:hover { opacity: 0.9; }
-
     @media (max-width: 768px) {
       .container { flex-direction: column; }
       #usersPanel { width: 100%; height: 40%; }
@@ -130,7 +135,7 @@
 
 <body>
 
-<header>💖 Dating App</header>
+<header>💖 Dating App Pro</header>
 
 <div class="top">
   <input id="name" placeholder="Enter your name">
@@ -142,6 +147,7 @@
 
   <div id="chatPanel">
     <div id="chatHeader">Select user</div>
+    <div id="typing"></div>
     <div id="chat"></div>
 
     <div id="inputArea">
@@ -187,6 +193,7 @@ function addUser() {
   db.collection("users").doc(name).set({
     name,
     online: true,
+    typing: false,
     lastSeen: Date.now()
   });
 
@@ -218,40 +225,39 @@ function selectUser(user, el) {
   document.querySelectorAll("#usersPanel div").forEach(d => d.classList.remove("active"));
   el.classList.add("active");
 
+  listenTyping();
   loadChat();
 }
 
-// SEND TEXT (FIXED)
+// SEND TEXT
 function sendMsg() {
   let msg = document.getElementById("msg").value.trim();
-  if (!msg || !selectedUser || !currentUser) return;
+  if (!msg || !selectedUser) return;
 
   db.collection("messages").add({
     from: currentUser,
     to: selectedUser,
     text: msg,
+    seen: false,
     type: "text",
     time: Date.now()
   });
 
   document.getElementById("msg").value = "";
+
+  setTyping(false);
 }
 
-// SEND IMAGE URL (FIXED)
+// SEND IMAGE
 function sendImageURL() {
   let url = document.getElementById("imgUrl").value.trim();
-
-  if (!url || !selectedUser || !currentUser) return;
-
-  if (!url.startsWith("http")) {
-    alert("Invalid Image URL");
-    return;
-  }
+  if (!url || !selectedUser) return;
 
   db.collection("messages").add({
     from: currentUser,
     to: selectedUser,
     img: url,
+    seen: false,
     type: "img",
     time: Date.now()
   });
@@ -259,22 +265,36 @@ function sendImageURL() {
   document.getElementById("imgUrl").value = "";
 }
 
-// ENTER SEND
+// ENTER
+document.getElementById("msg").addEventListener("input", function() {
+  setTyping(true);
+});
+
 document.getElementById("msg").addEventListener("keypress", function(e) {
   if (e.key === "Enter") sendMsg();
 });
 
-// DELETE MESSAGE
-function deleteMsg(id) {
-  if (confirm("Delete this message?")) {
-    db.collection("messages").doc(id).delete();
-  }
+// TYPING
+function setTyping(state) {
+  if (!selectedUser) return;
+
+  db.collection("users").doc(currentUser).update({
+    typing: state
+  });
 }
 
-// CHAT LOAD (FIXED FLICKER ISSUE)
-function loadChat() {
+// LISTEN TYPING
+function listenTyping() {
+  db.collection("users").doc(selectedUser)
+    .onSnapshot(doc => {
+      let data = doc.data();
+      document.getElementById("typing").innerText =
+        data.typing ? "typing..." : "";
+    });
+}
 
-  if (!selectedUser) return;
+// LOAD CHAT (WITH SEEN)
+function loadChat() {
 
   if (unsubscribeChat) unsubscribeChat();
 
@@ -295,14 +315,23 @@ function loadChat() {
 
           let cls = m.from === currentUser ? "me" : "other";
 
+          // mark seen
+          if (m.to === currentUser && !m.seen) {
+            db.collection("messages").doc(doc.id).update({ seen: true });
+          }
+
+          let seen = (m.from === currentUser)
+            ? (m.seen ? "✔✔" : "✔")
+            : "";
+
           let content = m.type === "text"
             ? m.text
             : `<img src="${m.img}" class="chat-img">`;
 
           chatDiv.innerHTML += `
-            <div class="msg ${cls}" onclick="deleteMsg('${doc.id}')">
+            <div class="msg ${cls}">
               ${content}
-              <span class="time">${formatTime(m.time)}</span>
+              <span class="time">${formatTime(m.time)} ${seen}</span>
             </div>
           `;
         }
