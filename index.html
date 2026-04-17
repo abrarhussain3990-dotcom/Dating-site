@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html>
 <head>
@@ -83,7 +84,6 @@
       margin: 5px;
       border-radius: 10px;
       max-width: 70%;
-      position: relative;
     }
 
     .me {
@@ -179,6 +179,16 @@ function formatTime(ts) {
   return d.getHours() + ":" + String(d.getMinutes()).padStart(2, "0");
 }
 
+// 🔥 AUTO ONLINE PING (important)
+setInterval(() => {
+  if (currentUser) {
+    db.collection("users").doc(currentUser).update({
+      online: true,
+      lastSeen: Date.now()
+    });
+  }
+}, 5000);
+
 // ADD USER
 function addUser() {
   let input = document.getElementById("name");
@@ -209,26 +219,49 @@ window.addEventListener("beforeunload", () => {
   }
 });
 
-// USERS LIST (FAST + SAFE)
-db.collection("users").onSnapshot(snapshot => {
+// USERS LIST + LAST MESSAGE + UNREAD (FAST)
+db.collection("users").onSnapshot(async snapshot => {
   let usersDiv = document.getElementById("usersPanel");
   usersDiv.innerHTML = "";
 
-  snapshot.forEach(doc => {
+  for (let doc of snapshot.docs) {
     let u = doc.data();
+    if (u.name === currentUser) continue;
 
-    if (u.name !== currentUser) {
-      let status = u.online
-        ? `<span class="online">🟢 Online</span>`
-        : `<span class="offline">Last seen</span>`;
+    let lastMsg = "";
+    let unread = 0;
 
-      usersDiv.innerHTML += `
-        <div onclick="selectUser('${u.name}', this)">
-          <b>${u.name}</b><br>${status}
-        </div>
-      `;
-    }
-  });
+    let msgs = await db.collection("messages")
+      .orderBy("time", "desc")
+      .limit(30)
+      .get();
+
+    msgs.forEach(m => {
+      let d = m.data();
+
+      if (
+        (d.from === currentUser && d.to === u.name) ||
+        (d.from === u.name && d.to === currentUser)
+      ) {
+        if (!lastMsg) lastMsg = d.text;
+      }
+
+      if (d.from === u.name && d.to === currentUser) unread++;
+    });
+
+    let status = u.online
+      ? `<span class="online">🟢 Online</span>`
+      : `<span class="offline">Last seen</span>`;
+
+    usersDiv.innerHTML += `
+      <div onclick="selectUser('${u.name}', this)">
+        <b>${u.name}</b>
+        ${unread ? `<span class="badge">${unread}</span>` : ""}
+        <br>${status}
+        <div class="lastMsg">${lastMsg}</div>
+      </div>
+    `;
+  }
 });
 
 // SELECT USER
@@ -264,7 +297,7 @@ document.getElementById("msg").addEventListener("keypress", e => {
   if (e.key === "Enter") sendMsg();
 });
 
-// CHAT (STABLE + DELETE FEATURE)
+// CHAT (STABLE)
 function loadChat() {
 
   if (unsubscribeChat) unsubscribeChat();
@@ -285,22 +318,12 @@ function loadChat() {
         ) {
           let cls = m.from === currentUser ? "me" : "other";
 
-          let msgEl = document.createElement("div");
-          msgEl.className = "msg " + cls;
-          msgEl.innerHTML = `
-            ${m.text}
-            <span class="time">${formatTime(m.time)}</span>
+          chatDiv.innerHTML += `
+            <div class="msg ${cls}">
+              ${m.text}
+              <span class="time">${formatTime(m.time)}</span>
+            </div>
           `;
-
-          // 🔥 LONG PRESS DELETE
-          msgEl.oncontextmenu = (e) => {
-            e.preventDefault();
-            if (confirm("Delete message?")) {
-              db.collection("messages").doc(doc.id).delete();
-            }
-          };
-
-          chatDiv.appendChild(msgEl);
         }
       });
 
