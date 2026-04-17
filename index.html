@@ -114,7 +114,7 @@
     button {
       padding: 10px;
       border: none;
-      border-radius: 50%;
+      border-radius: 20px;
       background: #ff4d6d;
       color: white;
       cursor: pointer;
@@ -134,7 +134,7 @@
 
 <div class="top">
   <input id="name" placeholder="Enter your name">
-  <button onclick="addUser()">✔</button>
+  <button onclick="addUser()">Enter</button>
 </div>
 
 <div class="container">
@@ -145,13 +145,11 @@
     <div id="chat"></div>
 
     <div id="inputArea">
-      <input id="msg" placeholder="Type message">
-      <input id="imgUrl" placeholder="Paste image URL">
-      <input type="file" id="imgInput" hidden>
+      <input id="msg" placeholder="Message">
+      <input id="imgUrl" placeholder="Paste image URL (https://...)">
 
-      <button onclick="sendMsg()">➤</button>
-      <button onclick="sendImageURL()">🌐</button>
-      <button onclick="pickImage()">📷</button>
+      <button onclick="sendMsg()">Send</button>
+      <button onclick="sendImageURL()">Send Img</button>
     </div>
   </div>
 </div>
@@ -179,16 +177,6 @@ function formatTime(ts) {
   return d.getHours() + ":" + String(d.getMinutes()).padStart(2, "0");
 }
 
-// ONLINE
-setInterval(() => {
-  if (currentUser) {
-    db.collection("users").doc(currentUser).update({
-      online: true,
-      lastSeen: Date.now()
-    });
-  }
-}, 5000);
-
 // ADD USER
 function addUser() {
   let name = document.getElementById("name").value.trim();
@@ -205,7 +193,7 @@ function addUser() {
   document.getElementById("name").disabled = true;
 }
 
-// USERS LIST
+// USERS
 db.collection("users").onSnapshot(snapshot => {
   let usersDiv = document.getElementById("usersPanel");
   usersDiv.innerHTML = "";
@@ -214,13 +202,9 @@ db.collection("users").onSnapshot(snapshot => {
     let u = doc.data();
     if (u.name === currentUser) return;
 
-    let status = u.online
-      ? `<span class="online">🟢 Online</span>`
-      : `<span class="offline">Offline</span>`;
-
     usersDiv.innerHTML += `
       <div onclick="selectUser('${u.name}', this)">
-        <b>${u.name}</b><br>${status}
+        <b>${u.name}</b>
       </div>
     `;
   });
@@ -253,10 +237,17 @@ function sendMsg() {
   document.getElementById("msg").value = "";
 }
 
-// SEND IMAGE URL
+// SEND IMAGE URL (FIXED)
 function sendImageURL() {
   let url = document.getElementById("imgUrl").value.trim();
+
   if (!url || !selectedUser) return;
+
+  // simple validation
+  if (!url.startsWith("http")) {
+    alert("Enter valid image URL!");
+    return;
+  }
 
   db.collection("messages").add({
     from: currentUser,
@@ -269,42 +260,19 @@ function sendImageURL() {
   document.getElementById("imgUrl").value = "";
 }
 
-// FILE PICK
-function pickImage() {
-  document.getElementById("imgInput").click();
-}
-
-// FILE SEND
-document.getElementById("imgInput").addEventListener("change", function(e) {
-  let file = e.target.files[0];
-  let reader = new FileReader();
-
-  reader.onload = function() {
-    db.collection("messages").add({
-      from: currentUser,
-      to: selectedUser,
-      img: reader.result,
-      type: "img",
-      time: Date.now()
-    });
-  };
-
-  reader.readAsDataURL(file);
-});
-
 // ENTER SEND
 document.getElementById("msg").addEventListener("keypress", function(e) {
   if (e.key === "Enter") sendMsg();
 });
 
-// DELETE MESSAGE
+// DELETE
 function deleteMsg(id) {
   if (confirm("Delete message?")) {
     db.collection("messages").doc(id).delete();
   }
 }
 
-// LOAD CHAT
+// CHAT
 function loadChat() {
 
   if (unsubscribeChat) unsubscribeChat();
