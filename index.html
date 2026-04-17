@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html>
 <head>
@@ -84,6 +83,7 @@
       margin: 5px;
       border-radius: 10px;
       max-width: 70%;
+      position: relative;
     }
 
     .me {
@@ -102,6 +102,12 @@
       opacity: 0.6;
       display: block;
       margin-top: 3px;
+    }
+
+    .status {
+      font-size: 9px;
+      opacity: 0.6;
+      float: right;
     }
 
     #inputArea {
@@ -174,12 +180,13 @@ let currentUser = "";
 let selectedUser = "";
 let unsubscribeChat = null;
 
+// TIME
 function formatTime(ts) {
   let d = new Date(ts);
   return d.getHours() + ":" + String(d.getMinutes()).padStart(2, "0");
 }
 
-// 🔥 AUTO ONLINE PING (important)
+// ONLINE PING
 setInterval(() => {
   if (currentUser) {
     db.collection("users").doc(currentUser).update({
@@ -206,7 +213,6 @@ function addUser() {
   });
 
   input.disabled = true;
-  alert("Welcome " + name);
 }
 
 // OFFLINE
@@ -219,35 +225,14 @@ window.addEventListener("beforeunload", () => {
   }
 });
 
-// USERS LIST + LAST MESSAGE + UNREAD (FAST)
-db.collection("users").onSnapshot(async snapshot => {
+// USERS
+db.collection("users").onSnapshot(snapshot => {
   let usersDiv = document.getElementById("usersPanel");
   usersDiv.innerHTML = "";
 
-  for (let doc of snapshot.docs) {
+  snapshot.forEach(doc => {
     let u = doc.data();
-    if (u.name === currentUser) continue;
-
-    let lastMsg = "";
-    let unread = 0;
-
-    let msgs = await db.collection("messages")
-      .orderBy("time", "desc")
-      .limit(30)
-      .get();
-
-    msgs.forEach(m => {
-      let d = m.data();
-
-      if (
-        (d.from === currentUser && d.to === u.name) ||
-        (d.from === u.name && d.to === currentUser)
-      ) {
-        if (!lastMsg) lastMsg = d.text;
-      }
-
-      if (d.from === u.name && d.to === currentUser) unread++;
-    });
+    if (u.name === currentUser) return;
 
     let status = u.online
       ? `<span class="online">🟢 Online</span>`
@@ -255,13 +240,10 @@ db.collection("users").onSnapshot(async snapshot => {
 
     usersDiv.innerHTML += `
       <div onclick="selectUser('${u.name}', this)">
-        <b>${u.name}</b>
-        ${unread ? `<span class="badge">${unread}</span>` : ""}
-        <br>${status}
-        <div class="lastMsg">${lastMsg}</div>
+        <b>${u.name}</b><br>${status}
       </div>
     `;
-  }
+  });
 });
 
 // SELECT USER
@@ -286,18 +268,14 @@ function sendMsg() {
     from: currentUser,
     to: selectedUser,
     text: msg,
-    time: Date.now()
+    time: Date.now(),
+    seen: false
   });
 
   input.value = "";
 }
 
-// ENTER KEY
-document.getElementById("msg").addEventListener("keypress", e => {
-  if (e.key === "Enter") sendMsg();
-});
-
-// CHAT (STABLE)
+// CHAT
 function loadChat() {
 
   if (unsubscribeChat) unsubscribeChat();
@@ -316,14 +294,49 @@ function loadChat() {
           (m.from === currentUser && m.to === selectedUser) ||
           (m.from === selectedUser && m.to === currentUser)
         ) {
+
+          // MARK AS SEEN
+          if (m.to === currentUser && !m.seen) {
+            db.collection("messages").doc(doc.id).update({ seen: true });
+          }
+
           let cls = m.from === currentUser ? "me" : "other";
 
-          chatDiv.innerHTML += `
-            <div class="msg ${cls}">
-              ${m.text}
-              <span class="time">${formatTime(m.time)}</span>
-            </div>
+          let msgEl = document.createElement("div");
+          msgEl.className = "msg " + cls;
+
+          let status = "";
+          if (m.from === currentUser) {
+            status = m.seen ? "✔✔ Seen" : "✔ Sent";
+          }
+
+          msgEl.innerHTML = `
+            ${m.text}
+            <span class="time">${formatTime(m.time)}</span>
+            <span class="status">${status}</span>
           `;
+
+          // DELETE
+          msgEl.oncontextmenu = (e) => {
+            e.preventDefault();
+            if (confirm("Delete?")) {
+              db.collection("messages").doc(doc.id).delete();
+            }
+          };
+
+          // EDIT
+          msgEl.ondblclick = () => {
+            if (m.from === currentUser) {
+              let newMsg = prompt("Edit message:", m.text);
+              if (newMsg) {
+                db.collection("messages").doc(doc.id).update({
+                  text: newMsg
+                });
+              }
+            }
+          };
+
+          chatDiv.appendChild(msgEl);
         }
       });
 
