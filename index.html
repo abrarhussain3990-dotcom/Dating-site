@@ -168,7 +168,6 @@ const db = firebase.firestore();
 
 let currentUser = "";
 let selectedUser = "";
-let unsubscribeChat = null;
 
 // TIME
 function formatTime(ts) {
@@ -176,12 +175,51 @@ function formatTime(ts) {
   return d.getHours() + ":" + String(d.getMinutes()).padStart(2, "0");
 }
 
-// ONLINE PING
+// 🔥 GLOBAL REALTIME LISTENER (IMPORTANT FIX)
+db.collection("messages")
+.orderBy("time")
+.onSnapshot(snapshot => {
+
+  if (!currentUser) return;
+
+  let chatDiv = document.getElementById("chat");
+  chatDiv.innerHTML = "";
+
+  snapshot.forEach(doc => {
+    let m = doc.data();
+
+    // 🔥 IMPORTANT: message always receive ho
+    if (
+      (m.from === currentUser && m.to === selectedUser) ||
+      (m.from === selectedUser && m.to === currentUser)
+    ) {
+
+      let cls = m.from === currentUser ? "me" : "other";
+
+      let html = "";
+      if (m.type === "text") {
+        html = m.text;
+      } else if (m.type === "img") {
+        html = `<img src="${m.img}" class="chat-img">`;
+      }
+
+      chatDiv.innerHTML += `
+        <div class="msg ${cls}">
+          ${html}
+          <span class="time">${formatTime(m.time)}</span>
+        </div>
+      `;
+    }
+  });
+
+  chatDiv.scrollTop = chatDiv.scrollHeight;
+});
+
+// ONLINE
 setInterval(() => {
   if (currentUser) {
     db.collection("users").doc(currentUser).update({
-      online: true,
-      lastSeen: Date.now()
+      online: true
     });
   }
 }, 5000);
@@ -192,20 +230,19 @@ function addUser() {
   let name = input.value.trim();
 
   if (!name) return alert("Enter name!");
-  if (currentUser) return alert("Already logged in!");
+  if (currentUser) return;
 
   currentUser = name;
 
   db.collection("users").doc(name).set({
     name,
-    online: true,
-    lastSeen: Date.now()
+    online: true
   });
 
   input.disabled = true;
 }
 
-// USERS
+// USERS LIST
 db.collection("users").onSnapshot(snapshot => {
   let usersDiv = document.getElementById("usersPanel");
   usersDiv.innerHTML = "";
@@ -214,13 +251,9 @@ db.collection("users").onSnapshot(snapshot => {
     let u = doc.data();
     if (u.name === currentUser) return;
 
-    let status = u.online
-      ? `<span class="online">🟢 Online</span>`
-      : `<span class="offline">Offline</span>`;
-
     usersDiv.innerHTML += `
       <div onclick="selectUser('${u.name}', this)">
-        <b>${u.name}</b><br>${status}
+        <b>${u.name}</b>
       </div>
     `;
   });
@@ -233,8 +266,6 @@ function selectUser(user, el) {
 
   document.querySelectorAll("#usersPanel div").forEach(d => d.classList.remove("active"));
   el.classList.add("active");
-
-  loadChat();
 }
 
 // SEND TEXT
@@ -255,14 +286,16 @@ function sendMsg() {
   input.value = "";
 }
 
-// IMAGE PICK
+// PICK IMAGE
 function pickImage() {
   document.getElementById("imgInput").click();
 }
 
-// IMAGE SEND
+// SEND IMAGE (FIXED 🔥)
 document.getElementById("imgInput").addEventListener("change", function(e) {
   let file = e.target.files[0];
+  if (!file || !selectedUser) return;
+
   let reader = new FileReader();
 
   reader.onload = function() {
@@ -277,49 +310,6 @@ document.getElementById("imgInput").addEventListener("change", function(e) {
 
   reader.readAsDataURL(file);
 });
-
-// CHAT
-function loadChat() {
-
-  if (unsubscribeChat) unsubscribeChat();
-
-  unsubscribeChat = db.collection("messages")
-    .orderBy("time")
-    .onSnapshot(snapshot => {
-
-      let chatDiv = document.getElementById("chat");
-      chatDiv.innerHTML = "";
-
-      snapshot.forEach(doc => {
-        let m = doc.data();
-
-        if (
-          (m.from === currentUser && m.to === selectedUser) ||
-          (m.from === selectedUser && m.to === currentUser)
-        ) {
-
-          let cls = m.from === currentUser ? "me" : "other";
-
-          let html = "";
-
-          if (m.type === "text") {
-            html = m.text;
-          } else if (m.type === "img") {
-            html = `<img src="${m.img}" class="chat-img">`;
-          }
-
-          chatDiv.innerHTML += `
-            <div class="msg ${cls}">
-              ${html}
-              <span class="time">${formatTime(m.time)}</span>
-            </div>
-          `;
-        }
-      });
-
-      chatDiv.scrollTop = chatDiv.scrollHeight;
-    });
-}
 </script>
 
 </body>
