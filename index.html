@@ -47,17 +47,6 @@
     .online { color: green; font-size: 11px; }
     .offline { color: gray; font-size: 11px; }
 
-    .lastMsg { font-size: 12px; color: #555; }
-
-    .badge {
-      background: red;
-      color: white;
-      font-size: 10px;
-      padding: 2px 6px;
-      border-radius: 10px;
-      float: right;
-    }
-
     #chatPanel {
       width: 65%;
       display: flex;
@@ -79,11 +68,10 @@
     }
 
     .msg {
-      padding: 8px 12px;
+      padding: 10px;
       margin: 5px;
-      border-radius: 10px;
+      border-radius: 12px;
       max-width: 70%;
-      position: relative;
     }
 
     .me {
@@ -101,19 +89,19 @@
       font-size: 10px;
       opacity: 0.6;
       display: block;
-      margin-top: 3px;
     }
 
-    .status {
-      font-size: 9px;
-      opacity: 0.6;
-      float: right;
+    img.chat-img {
+      max-width: 150px;
+      border-radius: 10px;
+      margin-top: 5px;
     }
 
     #inputArea {
       display: flex;
       padding: 10px;
       background: #f0f0f0;
+      gap: 5px;
     }
 
     #msg {
@@ -124,9 +112,9 @@
     }
 
     button {
-      padding: 10px 15px;
+      padding: 10px;
       border: none;
-      border-radius: 20px;
+      border-radius: 50%;
       background: #ff4d6d;
       color: white;
       cursor: pointer;
@@ -146,7 +134,7 @@
 
 <div class="top">
   <input id="name" placeholder="Enter your name">
-  <button onclick="addUser()">Enter</button>
+  <button onclick="addUser()">✔</button>
 </div>
 
 <div class="container">
@@ -158,7 +146,9 @@
 
     <div id="inputArea">
       <input id="msg" placeholder="Type message">
-      <button onclick="sendMsg()">Send</button>
+      <input type="file" id="imgInput" hidden>
+      <button onclick="sendMsg()">➤</button>
+      <button onclick="pickImage()">📷</button>
     </div>
   </div>
 </div>
@@ -215,16 +205,6 @@ function addUser() {
   input.disabled = true;
 }
 
-// OFFLINE
-window.addEventListener("beforeunload", () => {
-  if (currentUser) {
-    db.collection("users").doc(currentUser).update({
-      online: false,
-      lastSeen: Date.now()
-    });
-  }
-});
-
 // USERS
 db.collection("users").onSnapshot(snapshot => {
   let usersDiv = document.getElementById("usersPanel");
@@ -236,7 +216,7 @@ db.collection("users").onSnapshot(snapshot => {
 
     let status = u.online
       ? `<span class="online">🟢 Online</span>`
-      : `<span class="offline">Last seen</span>`;
+      : `<span class="offline">Offline</span>`;
 
     usersDiv.innerHTML += `
       <div onclick="selectUser('${u.name}', this)">
@@ -257,7 +237,7 @@ function selectUser(user, el) {
   loadChat();
 }
 
-// SEND MESSAGE
+// SEND TEXT
 function sendMsg() {
   let input = document.getElementById("msg");
   let msg = input.value.trim();
@@ -268,12 +248,35 @@ function sendMsg() {
     from: currentUser,
     to: selectedUser,
     text: msg,
-    time: Date.now(),
-    seen: false
+    type: "text",
+    time: Date.now()
   });
 
   input.value = "";
 }
+
+// IMAGE PICK
+function pickImage() {
+  document.getElementById("imgInput").click();
+}
+
+// IMAGE SEND
+document.getElementById("imgInput").addEventListener("change", function(e) {
+  let file = e.target.files[0];
+  let reader = new FileReader();
+
+  reader.onload = function() {
+    db.collection("messages").add({
+      from: currentUser,
+      to: selectedUser,
+      img: reader.result,
+      type: "img",
+      time: Date.now()
+    });
+  };
+
+  reader.readAsDataURL(file);
+});
 
 // CHAT
 function loadChat() {
@@ -295,48 +298,22 @@ function loadChat() {
           (m.from === selectedUser && m.to === currentUser)
         ) {
 
-          // MARK AS SEEN
-          if (m.to === currentUser && !m.seen) {
-            db.collection("messages").doc(doc.id).update({ seen: true });
-          }
-
           let cls = m.from === currentUser ? "me" : "other";
 
-          let msgEl = document.createElement("div");
-          msgEl.className = "msg " + cls;
+          let html = "";
 
-          let status = "";
-          if (m.from === currentUser) {
-            status = m.seen ? "✔✔ Seen" : "✔ Sent";
+          if (m.type === "text") {
+            html = m.text;
+          } else if (m.type === "img") {
+            html = `<img src="${m.img}" class="chat-img">`;
           }
 
-          msgEl.innerHTML = `
-            ${m.text}
-            <span class="time">${formatTime(m.time)}</span>
-            <span class="status">${status}</span>
+          chatDiv.innerHTML += `
+            <div class="msg ${cls}">
+              ${html}
+              <span class="time">${formatTime(m.time)}</span>
+            </div>
           `;
-
-          // DELETE
-          msgEl.oncontextmenu = (e) => {
-            e.preventDefault();
-            if (confirm("Delete?")) {
-              db.collection("messages").doc(doc.id).delete();
-            }
-          };
-
-          // EDIT
-          msgEl.ondblclick = () => {
-            if (m.from === currentUser) {
-              let newMsg = prompt("Edit message:", m.text);
-              if (newMsg) {
-                db.collection("messages").doc(doc.id).update({
-                  text: newMsg
-                });
-              }
-            }
-          };
-
-          chatDiv.appendChild(msgEl);
         }
       });
 
