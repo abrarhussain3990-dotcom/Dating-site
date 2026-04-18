@@ -6,7 +6,6 @@
 
   <style>
     body { font-family: Arial; margin: 0; background: #ece5dd; transition: 0.3s; }
-
     .dark { background: #1e1e1e; color: white; }
 
     header {
@@ -52,6 +51,7 @@
       width: 40px;
       height: 40px;
       border-radius: 50%;
+      object-fit: cover;
     }
 
     #chatPanel { width: 65%; display: flex; flex-direction: column; }
@@ -65,6 +65,12 @@
 
     .dark .other { background: #444; color: white; }
 
+    .chat-img {
+      max-width: 150px;
+      border-radius: 10px;
+      margin-top: 5px;
+    }
+
     #inputArea { display: flex; padding: 10px; gap: 5px; }
 
     input { padding: 10px; border-radius: 20px; border: 1px solid #ccc; }
@@ -75,6 +81,7 @@
       border: none;
       background: #ff4d6d;
       color: white;
+      cursor: pointer;
     }
   </style>
 </head>
@@ -97,11 +104,10 @@
 
   <div id="chatPanel">
     <div id="chatHeader">Select user</div>
-    <div id="typing"></div>
     <div id="chat"></div>
 
     <div id="inputArea">
-      <input id="msg" placeholder="Message">
+      <input id="msg" placeholder="Message" onkeypress="handleEnter(event)">
       <input id="imgUrl" placeholder="Image URL">
       <button onclick="sendMsg()">Send</button>
       <button onclick="sendImageURL()">Img</button>
@@ -133,37 +139,27 @@ function toggleDark() {
   document.body.classList.toggle("dark");
 }
 
-// ONLINE HEARTBEAT
-setInterval(() => {
-  if (currentUser) {
-    db.collection("users").doc(currentUser).update({
-      online: true,
-      lastSeen: Date.now()
-    });
-  }
-}, 5000);
-
 // ADD USER
 function addUser() {
   let name = document.getElementById("name").value.trim();
   let photo = document.getElementById("photo").value.trim();
 
+  if (!name) return alert("Enter name!");
+
   currentUser = name;
 
   db.collection("users").doc(name).set({
     name,
-    photo: photo || "https://i.imgur.com/1X6G7YQ.png",
+    photo: photo || "https://randomuser.me/api/portraits/men/1.jpg",
     online: true,
-    typing: false,
-    lastSeen: Date.now(),
-    likes: []
+    lastSeen: Date.now()
   });
 
   document.getElementById("name").disabled = true;
 }
 
-// USERS LIST + LAST MSG
-db.collection("users").onSnapshot(async snapshot => {
+// USERS LIST
+db.collection("users").onSnapshot(snapshot => {
   let div = document.getElementById("usersPanel");
   div.innerHTML = "";
 
@@ -172,62 +168,38 @@ db.collection("users").onSnapshot(async snapshot => {
     if (u.name === currentUser) return;
 
     div.innerHTML += `
-      <div onclick="selectUser('${u.name}', this)">
-        <img src="${u.photo}">
+      <div onclick="selectUser('${u.name}')">
+        <img src="${u.photo}" onerror="this.src='https://i.imgur.com/1X6G7YQ.png'">
         <div>
-          <b>${u.name}</b><br>
-          <small id="last-${u.name}">...</small>
+          <b>${u.name}</b>
         </div>
-        <button onclick="likeUser('${u.name}', event)">❤️</button>
       </div>
     `;
   });
-
-  loadLastMessages();
 });
 
-// LAST MESSAGE PREVIEW
-function loadLastMessages() {
-  db.collection("messages").onSnapshot(snapshot => {
-    snapshot.forEach(doc => {
-      let m = doc.data();
-
-      let other = m.from === currentUser ? m.to : m.from;
-      let el = document.getElementById("last-" + other);
-
-      if (el) {
-        el.innerText = m.type === "text" ? m.text : "📷 Image";
-      }
-    });
-  });
-}
-
-// LIKE
-function likeUser(user, e) {
-  e.stopPropagation();
-  db.collection("users").doc(currentUser).update({
-    likes: firebase.firestore.FieldValue.arrayUnion(user)
-  });
-}
-
 // SELECT USER
-function selectUser(user, el) {
+function selectUser(user) {
   selectedUser = user;
   document.getElementById("chatHeader").innerText = user;
-
   loadChat();
 }
 
 // SEND TEXT
 function sendMsg() {
   let msg = document.getElementById("msg").value.trim();
-  if (!msg || !selectedUser) return alert("Select user!");
+
+  if (!selectedUser) {
+    alert("Pehle user select karo!");
+    return;
+  }
+
+  if (!msg) return;
 
   db.collection("messages").add({
     from: currentUser,
     to: selectedUser,
     text: msg,
-    seen: false,
     type: "text",
     time: Date.now()
   });
@@ -238,13 +210,21 @@ function sendMsg() {
 // SEND IMAGE
 function sendImageURL() {
   let url = document.getElementById("imgUrl").value.trim();
-  if (!url || !selectedUser) return;
+
+  if (!selectedUser) {
+    alert("Pehle user select karo!");
+    return;
+  }
+
+  if (!url.startsWith("http")) {
+    alert("Valid image URL daalo!");
+    return;
+  }
 
   db.collection("messages").add({
     from: currentUser,
     to: selectedUser,
     img: url,
-    seen: false,
     type: "img",
     time: Date.now()
   });
@@ -252,7 +232,12 @@ function sendImageURL() {
   document.getElementById("imgUrl").value = "";
 }
 
-// LOAD CHAT + SOUND
+// ENTER KEY SEND
+function handleEnter(e) {
+  if (e.key === "Enter") sendMsg();
+}
+
+// LOAD CHAT
 function loadChat() {
 
   if (unsubscribeChat) unsubscribeChat();
@@ -272,16 +257,11 @@ function loadChat() {
           (m.from === selectedUser && m.to === currentUser)
         ) {
 
-          if (m.to === currentUser && !m.seen) {
-            db.collection("messages").doc(doc.id).update({ seen: true });
-            document.getElementById("msgSound").play();
-          }
-
           let cls = m.from === currentUser ? "me" : "other";
 
           let content = m.type === "text"
             ? m.text
-            : `<img src="${m.img}" class="chat-img">`;
+            : `<img src="${m.img}" class="chat-img" onerror="this.src='https://i.imgur.com/1X6G7YQ.png'">`;
 
           chatDiv.innerHTML += `<div class="msg ${cls}">${content}</div>`;
         }
