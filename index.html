@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html>
 <head>
@@ -71,17 +72,6 @@
       margin-top: 5px;
     }
 
-    .time {
-      font-size: 10px;
-      opacity: 0.7;
-    }
-
-    #typing {
-      font-size: 12px;
-      padding: 5px;
-      color: gray;
-    }
-
     #inputArea { display: flex; padding: 10px; gap: 5px; }
 
     input { padding: 10px; border-radius: 20px; border: 1px solid #ccc; }
@@ -115,23 +105,19 @@
 
   <div id="chatPanel">
     <div id="chatHeader">Select user</div>
-    <div id="typing"></div>
     <div id="chat"></div>
 
     <div id="inputArea">
-      <input id="msg" placeholder="Message" onkeypress="handleEnter(event)" oninput="typing()">
+      <input id="msg" placeholder="Message" onkeypress="handleEnter(event)">
       <input id="imgUrl" placeholder="Image URL">
       <button onclick="sendMsg()">Send</button>
       <button onclick="sendImageURL()">Img</button>
 
-      <!-- NEW -->
       <input type="file" id="fileInput" accept="image/*" style="display:none">
       <button onclick="pickImage()">📎</button>
     </div>
   </div>
 </div>
-
-<audio id="msgSound" src="https://www.soundjay.com/buttons/sounds/button-3.mp3"></audio>
 
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
@@ -150,72 +136,54 @@ const storage = firebase.storage();
 
 let currentUser = "";
 let selectedUser = "";
-let unsubscribeChat = null;
-
-// DARK MODE
-function toggleDark() {
-  document.body.classList.toggle("dark");
-}
 
 // ADD USER
 function addUser() {
   let name = document.getElementById("name").value.trim();
-  let photo = document.getElementById("photo").value.trim();
-
-  if (!name) return alert("Enter name!");
+  if (!name) return;
 
   currentUser = name;
 
   db.collection("users").doc(name).set({
     name,
-    photo: photo || "https://i.imgur.com/1X6G7YQ.png",
-    online: true,
-    lastSeen: Date.now(),
-    typing: false
+    photo: "https://i.imgur.com/1X6G7YQ.png"
   });
-
-  document.getElementById("name").disabled = true;
 }
 
 // USERS
-db.collection("users").onSnapshot(snapshot => {
+db.collection("users").onSnapshot(snap => {
   let div = document.getElementById("usersPanel");
   div.innerHTML = "";
 
-  snapshot.forEach(doc => {
+  snap.forEach(doc => {
     let u = doc.data();
     if (u.name === currentUser) return;
 
     div.innerHTML += `
       <div onclick="selectUser('${u.name}')">
-        <img src="${u.photo}" onerror="this.src='https://i.imgur.com/1X6G7YQ.png'">
-        <div>
-          <b>${u.name}</b><br>
-          <small>${u.online ? "🟢 Online" : "Last seen"}</small>
-        </div>
+        <img src="${u.photo}">
+        <b>${u.name}</b>
       </div>
     `;
   });
 });
 
-function selectUser(user) {
-  selectedUser = user;
-  document.getElementById("chatHeader").innerText = user;
+function selectUser(u) {
+  selectedUser = u;
   loadChat();
 }
 
 // SEND TEXT
 function sendMsg() {
-  let msg = document.getElementById("msg").value.trim();
-  if (!selectedUser || !msg) return;
+  let msg = document.getElementById("msg").value;
+  if (!msg || !selectedUser) return;
 
   db.collection("messages").add({
     from: currentUser,
     to: selectedUser,
     text: msg,
     type: "text",
-    time: Date.now(),
-    seen: false
+    time: Date.now()
   });
 
   document.getElementById("msg").value = "";
@@ -223,88 +191,80 @@ function sendMsg() {
 
 // SEND IMAGE URL
 function sendImageURL() {
-  let url = document.getElementById("imgUrl").value.trim();
-  if (!selectedUser || !url.startsWith("http")) return;
+  let url = document.getElementById("imgUrl").value;
+  if (!url || !selectedUser) return;
 
   db.collection("messages").add({
     from: currentUser,
     to: selectedUser,
     img: url,
     type: "img",
-    time: Date.now(),
-    seen: false
+    time: Date.now()
   });
-
-  document.getElementById("imgUrl").value = "";
 }
 
-// FILE PICK
+// PICK IMAGE
 function pickImage() {
   document.getElementById("fileInput").click();
 }
 
-// UPLOAD
-document.getElementById("fileInput").addEventListener("change", e => {
+// ✅ FIXED UPLOAD (MAIN)
+document.getElementById("fileInput").addEventListener("change", function(e) {
   let file = e.target.files[0];
-  if (!file) return;
+  if (!file || !selectedUser) return;
 
-  let ref = storage.ref("chat/" + Date.now());
-  ref.put(file).then(() => {
-    ref.getDownloadURL().then(url => {
+  let tempId = "temp" + Date.now();
+
+  document.getElementById("chat").innerHTML += `
+    <div class="msg me" id="${tempId}">Uploading...</div>
+  `;
+
+  let ref = storage.ref("chat/" + Date.now() + "_" + file.name);
+
+  ref.put(file)
+    .then(() => ref.getDownloadURL())
+    .then(url => {
+
+      document.getElementById(tempId).remove();
+
       db.collection("messages").add({
         from: currentUser,
         to: selectedUser,
         img: url,
         type: "img",
-        time: Date.now(),
-        seen: false
+        time: Date.now()
       });
+
+    })
+    .catch(err => {
+      alert("Upload error: " + err.message);
     });
-  });
 });
 
 // LOAD CHAT
 function loadChat() {
-  if (unsubscribeChat) unsubscribeChat();
+  db.collection("messages").orderBy("time").onSnapshot(snap => {
+    let div = document.getElementById("chat");
+    div.innerHTML = "";
 
-  unsubscribeChat = db.collection("messages")
-    .orderBy("time")
-    .onSnapshot(snapshot => {
+    snap.forEach(doc => {
+      let m = doc.data();
 
-      let chatDiv = document.getElementById("chat");
-      chatDiv.innerHTML = "";
+      if (
+        (m.from === currentUser && m.to === selectedUser) ||
+        (m.from === selectedUser && m.to === currentUser)
+      ) {
+        let cls = m.from === currentUser ? "me" : "other";
 
-      snapshot.forEach(doc => {
-        let m = doc.data();
+        let content = m.type === "text"
+          ? m.text
+          : `<img src="${m.img}" class="chat-img">`;
 
-        if (
-          (m.from === currentUser && m.to === selectedUser) ||
-          (m.from === selectedUser && m.to === currentUser)
-        ) {
-
-          let cls = m.from === currentUser ? "me" : "other";
-
-          let content = m.type === "text"
-            ? m.text
-            : `<img src="${m.img}" class="chat-img" onerror="this.src='https://i.imgur.com/1X6G7YQ.png'">`;
-
-          chatDiv.innerHTML += `<div class="msg ${cls}">${content}</div>`;
-        }
-      });
-
-      chatDiv.scrollTop = chatDiv.scrollHeight;
+        div.innerHTML += `<div class="msg ${cls}">${content}</div>`;
+      }
     });
+  });
 }
-
-// OFFLINE
-window.addEventListener("beforeunload", () => {
-  if (currentUser) {
-    db.collection("users").doc(currentUser).update({
-      online: false,
-      lastSeen: Date.now()
-    });
-  }
-});
 </script>
 
 </body>
