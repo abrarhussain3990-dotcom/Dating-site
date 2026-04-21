@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>💖 Dating App FINAL PRO</title>
+  <title>💖 Dating App FINAL PRO+</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <style>
@@ -58,7 +58,7 @@
 
     #chat { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; }
 
-    .msg { padding: 10px; margin: 5px; border-radius: 12px; max-width: 70%; }
+    .msg { padding: 10px; margin: 5px; border-radius: 12px; max-width: 70%; position: relative; }
 
     .me { background: #ff4d6d; color: white; align-self: flex-end; }
     .other { background: #fff; align-self: flex-start; }
@@ -69,6 +69,18 @@
       max-width: 150px;
       border-radius: 10px;
       margin-top: 5px;
+    }
+
+    .time {
+      font-size: 10px;
+      opacity: 0.7;
+      margin-top: 3px;
+    }
+
+    #typing {
+      font-size: 12px;
+      padding: 5px;
+      color: gray;
     }
 
     #inputArea { display: flex; padding: 10px; gap: 5px; }
@@ -89,7 +101,7 @@
 <body>
 
 <header>
-💖 Dating App FINAL PRO
+💖 Dating App FINAL PRO+
 <button onclick="toggleDark()">🌙</button>
 </header>
 
@@ -104,10 +116,11 @@
 
   <div id="chatPanel">
     <div id="chatHeader">Select user</div>
+    <div id="typing"></div>
     <div id="chat"></div>
 
     <div id="inputArea">
-      <input id="msg" placeholder="Message" onkeypress="handleEnter(event)">
+      <input id="msg" placeholder="Message" onkeypress="handleEnter(event)" oninput="typing()">
       <input id="imgUrl" placeholder="Image URL">
       <button onclick="sendMsg()">Send</button>
       <button onclick="sendImageURL()">Img</button>
@@ -152,7 +165,8 @@ function addUser() {
     name,
     photo: photo || "https://randomuser.me/api/portraits/men/1.jpg",
     online: true,
-    lastSeen: Date.now()
+    lastSeen: Date.now(),
+    typing: false
   });
 
   document.getElementById("name").disabled = true;
@@ -167,11 +181,14 @@ db.collection("users").onSnapshot(snapshot => {
     let u = doc.data();
     if (u.name === currentUser) return;
 
+    let status = u.online ? "🟢 Online" : "Last seen";
+
     div.innerHTML += `
       <div onclick="selectUser('${u.name}')">
-        <img src="${u.photo}" onerror="this.src='https://i.imgur.com/1X6G7YQ.png'">
+        <img src="${u.photo}">
         <div>
-          <b>${u.name}</b>
+          <b>${u.name}</b><br>
+          <small>${status}</small>
         </div>
       </div>
     `;
@@ -189,10 +206,7 @@ function selectUser(user) {
 function sendMsg() {
   let msg = document.getElementById("msg").value.trim();
 
-  if (!selectedUser) {
-    alert("Pehle user select karo!");
-    return;
-  }
+  if (!selectedUser) return alert("Select user!");
 
   if (!msg) return;
 
@@ -201,7 +215,8 @@ function sendMsg() {
     to: selectedUser,
     text: msg,
     type: "text",
-    time: Date.now()
+    time: Date.now(),
+    seen: false
   });
 
   document.getElementById("msg").value = "";
@@ -211,28 +226,32 @@ function sendMsg() {
 function sendImageURL() {
   let url = document.getElementById("imgUrl").value.trim();
 
-  if (!selectedUser) {
-    alert("Pehle user select karo!");
-    return;
-  }
+  if (!selectedUser) return alert("Select user!");
 
-  if (!url.startsWith("http")) {
-    alert("Valid image URL daalo!");
-    return;
-  }
+  if (!url.startsWith("http")) return alert("Valid URL!");
 
   db.collection("messages").add({
     from: currentUser,
     to: selectedUser,
     img: url,
     type: "img",
-    time: Date.now()
+    time: Date.now(),
+    seen: false
   });
 
   document.getElementById("imgUrl").value = "";
 }
 
-// ENTER KEY SEND
+// TYPING
+function typing() {
+  db.collection("users").doc(currentUser).update({ typing: true });
+
+  setTimeout(() => {
+    db.collection("users").doc(currentUser).update({ typing: false });
+  }, 1000);
+}
+
+// ENTER KEY
 function handleEnter(e) {
   if (e.key === "Enter") sendMsg();
 }
@@ -259,16 +278,43 @@ function loadChat() {
 
           let cls = m.from === currentUser ? "me" : "other";
 
+          let time = new Date(m.time).toLocaleTimeString();
+
           let content = m.type === "text"
             ? m.text
-            : `<img src="${m.img}" class="chat-img" onerror="this.src='https://i.imgur.com/1X6G7YQ.png'">`;
+            : `<img src="${m.img}" class="chat-img">`;
 
-          chatDiv.innerHTML += `<div class="msg ${cls}">${content}</div>`;
+          let seen = m.seen ? "✔✔" : "✔";
+
+          chatDiv.innerHTML += `
+            <div class="msg ${cls}" ondblclick="deleteMsg('${doc.id}')">
+              ${content}
+              <div class="time">${time} ${cls==="me"?seen:""}</div>
+            </div>
+          `;
+
+          if (m.to === currentUser) {
+            db.collection("messages").doc(doc.id).update({ seen: true });
+          }
         }
       });
 
+      document.getElementById("msgSound").play();
       chatDiv.scrollTop = chatDiv.scrollHeight;
     });
+
+  // typing indicator
+  db.collection("users").doc(selectedUser).onSnapshot(doc => {
+    let u = doc.data();
+    document.getElementById("typing").innerText = u.typing ? "typing..." : "";
+  });
+}
+
+// DELETE MESSAGE
+function deleteMsg(id) {
+  if (confirm("Delete message?")) {
+    db.collection("messages").doc(id).delete();
+  }
 }
 </script>
 
