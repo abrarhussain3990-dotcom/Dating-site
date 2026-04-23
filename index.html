@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>💖 Dating App FINAL PRO ULTRA (FIXED)</title>
+  <title>💖 Dating App FINAL PRO ULTRA (STABLE FIX)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <style>
@@ -17,7 +17,7 @@
 
     #usersPanel div {
       padding: 10px; border-bottom: 1px solid #eee;
-      cursor: pointer; display: flex; align-items: center; gap: 10px;
+      cursor: pointer;
     }
 
     #chatPanel { width: 65%; display: flex; flex-direction: column; }
@@ -47,7 +47,7 @@
 
 <body>
 
-<header>💖 Dating App ULTRA (FIXED)</header>
+<header>💖 Dating App ULTRA (FIXED STABLE)</header>
 
 <div class="top">
   <input id="name" placeholder="Enter name">
@@ -64,7 +64,6 @@
     <div id="inputArea">
       <input id="msg" placeholder="Message" onkeypress="handleEnter(event)">
       <button onclick="sendMsg()">Send</button>
-
       <button onclick="startRecording()">🎤</button>
       <button onclick="startCall()">📞</button>
       <button onclick="endCall()">❌</button>
@@ -96,6 +95,7 @@ let selectedUser = "";
 let pc;
 
 function getChatId() {
+  if (!currentUser || !selectedUser) return "";
   return [currentUser, selectedUser].sort().join("_");
 }
 
@@ -114,8 +114,7 @@ function addUser() {
   snap.forEach(doc => {
     let u = doc.data();
     if (u.name === currentUser) return;
-
-    div.innerHTML += `<div onclick="selectUser('${u.name}')"><b>${u.name}</b></div>`;
+    div.innerHTML += `<div onclick=\"selectUser('${u.name}')\"><b>${u.name}</b></div>`;
   });
 });
 
@@ -125,13 +124,12 @@ function selectUser(u) {
   loadChat();
 }
 
-// TEXT MSG
+// TEXT MSG (FIXED SIMPLE)
 function sendMsg() {
   let msg = document.getElementById("msg").value;
-  if (!msg || !selectedUser) return;
+  if (!msg || !selectedUser || !currentUser) return;
 
   db.collection("messages").add({
-    chatId: getChatId(),
     from: currentUser,
     to: selectedUser,
     text: msg,
@@ -146,8 +144,10 @@ function handleEnter(e) {
   if (e.key === "Enter") sendMsg();
 }
 
-// VOICE
+// VOICE (SAFE STORAGE)
 function startRecording() {
+  if (!selectedUser) return;
+
   navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
     let recorder = new MediaRecorder(stream);
     let chunks = [];
@@ -161,7 +161,6 @@ function startRecording() {
       ref.put(blob).then(() => {
         ref.getDownloadURL().then(url => {
           db.collection("messages").add({
-            chatId: getChatId(),
             from: currentUser,
             to: selectedUser,
             audio: url,
@@ -177,7 +176,7 @@ function startRecording() {
   });
 }
 
-// CALL
+// CALL (BASIC FIXED)
 function createPC() {
   pc = new RTCPeerConnection();
 
@@ -195,6 +194,8 @@ function createPC() {
 }
 
 async function startCall() {
+  if (!selectedUser) return;
+
   createPC();
 
   let stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
@@ -208,17 +209,17 @@ async function startCall() {
   db.collection("calls").doc(getChatId()).set({ offer }, { merge: true });
 }
 
-// LISTEN CALL
+// CALL LISTENER FIXED
  db.collection("calls").onSnapshot(async snap => {
   snap.forEach(async doc => {
     let data = doc.data();
+    if (!getChatId()) return;
 
-    if (!pc) createPC();
+    if (!pc && data.offer) createPC();
 
     if (data.offer && doc.id === getChatId()) {
       if (!pc.currentRemoteDescription) {
         await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
-
         let answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
 
@@ -226,43 +227,49 @@ async function startCall() {
       }
     }
 
-    if (data.answer) {
+    if (data.answer && doc.id === getChatId()) {
       await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
     }
 
     if (data.candidate) {
-      let candidate = new RTCIceCandidate(JSON.parse(data.candidate));
-      pc.addIceCandidate(candidate);
+      try {
+        let candidate = new RTCIceCandidate(JSON.parse(data.candidate));
+        pc && pc.addIceCandidate(candidate);
+      } catch(e){}
     }
   });
 });
 
 function endCall() {
   if (pc) pc.close();
+  pc = null;
   alert("Call Ended");
 }
 
-// LOAD CHAT
+// CHAT LOAD (RESTORED SIMPLE)
 function loadChat() {
-  db.collection("messages")
-    .where("chatId", "==", getChatId())
-    .orderBy("time")
-    .onSnapshot(snap => {
-      let div = document.getElementById("chat");
-      div.innerHTML = "";
+  db.collection("messages").onSnapshot(snap => {
+    let div = document.getElementById("chat");
+    div.innerHTML = "";
 
-      snap.forEach(doc => {
-        let m = doc.data();
+    snap.forEach(doc => {
+      let m = doc.data();
+
+      if (
+        (m.from === currentUser && m.to === selectedUser) ||
+        (m.from === selectedUser && m.to === currentUser)
+      ) {
         let cls = m.from === currentUser ? "me" : "other";
 
         let content = "";
 
         if (m.type === "text") content = m.text;
-        else if (m.type === "audio") content = `<audio controls src="${m.audio}"></audio>`;
+        else if (m.type === "audio") content = `<audio controls src=\"${m.audio}\"></audio>`;
 
-        div.innerHTML += `<div class="msg ${cls}">${content}</div>`;
-      });
+        div.innerHTML += `<div class=\"msg ${cls}\">${content}</div>`;
+      }
     });
+  });
 }
 </script>
 
