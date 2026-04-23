@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>💖 Dating App SIMPLE WORKING VERSION</title>
+  <title>💖 Dating App SIMPLE WORKING FIXED</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <style>
@@ -36,7 +36,7 @@
 
 <body>
 
-<header>💖 Dating App SIMPLE (WORKING)</header>
+<header>💖 Dating App SIMPLE FIXED (WORKING)</header>
 
 <div class="top">
   <input id="name" placeholder="Enter name">
@@ -54,7 +54,6 @@
     <div id="inputArea">
       <input id="msg" placeholder="Message" onkeypress="enter(event)">
       <button onclick="send()">Send</button>
-
       <button onclick="sendImage()">📷</button>
       <button onclick="recordVoice()">🎤</button>
       <button onclick="call()">📞</button>
@@ -86,14 +85,18 @@ let other = "";
 let pc;
 
 function chatId(){
+  if(!me || !other) return "";
   return [me, other].sort().join("_");
 }
 
 // JOIN
 function join(){
-  me = document.getElementById("name").value;
-  if(!me) return;
-  db.collection("users").doc(me).set({name:me});
+  me = document.getElementById("name").value.trim();
+  if(!me) return alert("Enter name");
+
+  db.collection("users").doc(me).set({name:me})
+    .then(()=>alert("Joined ✔"))
+    .catch(err=>alert(err.message));
 }
 
 // USERS
@@ -116,8 +119,8 @@ function openChat(u){
 
 // TEXT
 function send(){
-  let m=document.getElementById("msg").value;
-  if(!m||!other) return;
+  let m=document.getElementById("msg").value.trim();
+  if(!m||!other||!me) return;
 
   db.collection("messages").add({
     from:me,to:other,text:m,type:"text",chatId:chatId(),time:Date.now()
@@ -126,9 +129,9 @@ function send(){
   document.getElementById("msg").value="";
 }
 
-function enter(e){if(e.key=="Enter") send();}
+function enter(e){ if(e.key=="Enter") send(); }
 
-// IMAGE (simple base64)
+// IMAGE
 function sendImage(){
   let input=document.createElement("input");
   input.type="file";
@@ -149,10 +152,12 @@ function sendImage(){
   input.click();
 }
 
-// VOICE (simple base64)
+// VOICE
 function recordVoice(){
-  navigator.mediaDevices.getUserMedia({audio:true}).then(s=>{
-    let r=new MediaRecorder(s);
+  if(!other) return;
+
+  navigator.mediaDevices.getUserMedia({audio:true}).then(stream=>{
+    let r=new MediaRecorder(stream);
     let chunks=[];
 
     r.ondataavailable=e=>chunks.push(e.data);
@@ -175,7 +180,7 @@ function recordVoice(){
   });
 }
 
-// CALL (basic)
+// CALL
 function createPC(){
   pc=new RTCPeerConnection();
 
@@ -183,14 +188,14 @@ function createPC(){
     document.getElementById("remote").srcObject=e.streams[0];
   };
 
-  navigator.mediaDevices.getUserMedia({video:true,audio:true}).then(s=>{
-    document.getElementById("local").srcObject=s;
-    s.getTracks().forEach(t=>pc.addTrack(t,s));
+  navigator.mediaDevices.getUserMedia({video:true,audio:true}).then(stream=>{
+    document.getElementById("local").srcObject=stream;
+    stream.getTracks().forEach(t=>pc.addTrack(t,stream));
   });
 }
 
 async function call(){
-  if(!other) return;
+  if(!other||!me) return;
 
   createPC();
 
@@ -203,6 +208,7 @@ async function call(){
  db.collection("calls").onSnapshot(async snap=>{
   snap.forEach(async d=>{
     let data=d.data();
+    if(!chatId()) return;
 
     if(!pc && data.offer) createPC();
 
