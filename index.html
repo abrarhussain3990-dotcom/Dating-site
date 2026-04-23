@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>💖 Dating App FINAL PRO ULTRA</title>
+  <title>💖 Dating App FINAL PRO ULTRA (FIXED)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <style>
@@ -13,17 +13,11 @@
 
     .container { display: flex; height: calc(100vh - 120px); }
 
-    #usersPanel {
-      width: 35%; background: white; overflow-y: auto;
-    }
+    #usersPanel { width: 35%; background: white; overflow-y: auto; }
 
     #usersPanel div {
       padding: 10px; border-bottom: 1px solid #eee;
       cursor: pointer; display: flex; align-items: center; gap: 10px;
-    }
-
-    #usersPanel img {
-      width: 40px; height: 40px; border-radius: 50%;
     }
 
     #chatPanel { width: 65%; display: flex; flex-direction: column; }
@@ -47,13 +41,13 @@
       cursor: pointer;
     }
 
-    video { width: 100px; margin: 5px; }
+    video { width: 120px; margin: 5px; }
   </style>
 </head>
 
 <body>
 
-<header>💖 Dating App ULTRA</header>
+<header>💖 Dating App ULTRA (FIXED)</header>
 
 <div class="top">
   <input id="name" placeholder="Enter name">
@@ -71,10 +65,7 @@
       <input id="msg" placeholder="Message" onkeypress="handleEnter(event)">
       <button onclick="sendMsg()">Send</button>
 
-      <!-- VOICE -->
       <button onclick="startRecording()">🎤</button>
-
-      <!-- CALL -->
       <button onclick="startCall()">📞</button>
       <button onclick="endCall()">❌</button>
     </div>
@@ -86,32 +77,37 @@
 
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
 
 <script>
 const firebaseConfig = {
   apiKey: "AIzaSy...",
   authDomain: "lovedatingapp-70584.firebaseapp.com",
   projectId: "lovedatingapp-70584",
+  storageBucket: "lovedatingapp-70584.appspot.com"
 };
 
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
+const storage = firebase.storage();
 
 let currentUser = "";
 let selectedUser = "";
+let pc;
 
-// USER
+function getChatId() {
+  return [currentUser, selectedUser].sort().join("_");
+}
+
 function addUser() {
   let name = document.getElementById("name").value.trim();
   if (!name) return;
-
   currentUser = name;
-
   db.collection("users").doc(name).set({ name });
 }
 
 // USERS
-db.collection("users").onSnapshot(snap => {
+ db.collection("users").onSnapshot(snap => {
   let div = document.getElementById("usersPanel");
   div.innerHTML = "";
 
@@ -119,11 +115,7 @@ db.collection("users").onSnapshot(snap => {
     let u = doc.data();
     if (u.name === currentUser) return;
 
-    div.innerHTML += `
-      <div onclick="selectUser('${u.name}')">
-        <b>${u.name}</b>
-      </div>
-    `;
+    div.innerHTML += `<div onclick="selectUser('${u.name}')"><b>${u.name}</b></div>`;
   });
 });
 
@@ -139,6 +131,7 @@ function sendMsg() {
   if (!msg || !selectedUser) return;
 
   db.collection("messages").add({
+    chatId: getChatId(),
     from: currentUser,
     to: selectedUser,
     text: msg,
@@ -153,104 +146,113 @@ function handleEnter(e) {
   if (e.key === "Enter") sendMsg();
 }
 
-//
-// 🎤 VOICE MESSAGE
-//
-let mediaRecorder;
-let audioChunks = [];
-
+// VOICE
 function startRecording() {
   navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+    let recorder = new MediaRecorder(stream);
+    let chunks = [];
 
-    mediaRecorder = new MediaRecorder(stream);
-    mediaRecorder.start();
+    recorder.ondataavailable = e => chunks.push(e.data);
 
-    audioChunks = [];
+    recorder.onstop = () => {
+      let blob = new Blob(chunks);
+      let ref = storage.ref("audio/" + Date.now());
 
-    mediaRecorder.ondataavailable = e => {
-      audioChunks.push(e.data);
-    };
-
-    mediaRecorder.onstop = () => {
-      let blob = new Blob(audioChunks);
-      let reader = new FileReader();
-
-      reader.onloadend = () => {
-        db.collection("messages").add({
-          from: currentUser,
-          to: selectedUser,
-          audio: reader.result,
-          type: "audio",
-          time: Date.now()
+      ref.put(blob).then(() => {
+        ref.getDownloadURL().then(url => {
+          db.collection("messages").add({
+            chatId: getChatId(),
+            from: currentUser,
+            to: selectedUser,
+            audio: url,
+            type: "audio",
+            time: Date.now()
+          });
         });
-      };
-
-      reader.readAsDataURL(blob);
+      });
     };
 
-    setTimeout(() => mediaRecorder.stop(), 3000);
+    recorder.start();
+    setTimeout(() => recorder.stop(), 3000);
   });
 }
 
-//
-// 📞 VIDEO CALL (BASIC)
-//
-let pc = new RTCPeerConnection();
+// CALL
+function createPC() {
+  pc = new RTCPeerConnection();
 
-async function startCall() {
-  let stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-
-  document.getElementById("localVideo").srcObject = stream;
-
-  stream.getTracks().forEach(track => pc.addTrack(track, stream));
+  pc.onicecandidate = e => {
+    if (e.candidate) {
+      db.collection("calls").doc(getChatId()).set({
+        candidate: JSON.stringify(e.candidate)
+      }, { merge: true });
+    }
+  };
 
   pc.ontrack = e => {
     document.getElementById("remoteVideo").srcObject = e.streams[0];
   };
+}
+
+async function startCall() {
+  createPC();
+
+  let stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+  document.getElementById("localVideo").srcObject = stream;
+
+  stream.getTracks().forEach(track => pc.addTrack(track, stream));
 
   let offer = await pc.createOffer();
   await pc.setLocalDescription(offer);
 
-  db.collection("calls").doc(selectedUser).set({ offer });
+  db.collection("calls").doc(getChatId()).set({ offer }, { merge: true });
 }
 
-db.collection("calls").onSnapshot(async snap => {
+// LISTEN CALL
+ db.collection("calls").onSnapshot(async snap => {
   snap.forEach(async doc => {
     let data = doc.data();
 
-    if (data.offer && doc.id === currentUser) {
-      await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
+    if (!pc) createPC();
 
-      let answer = await pc.createAnswer();
-      await pc.setLocalDescription(answer);
+    if (data.offer && doc.id === getChatId()) {
+      if (!pc.currentRemoteDescription) {
+        await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
 
-      db.collection("calls").doc(selectedUser).set({ answer });
+        let answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+
+        db.collection("calls").doc(getChatId()).set({ answer }, { merge: true });
+      }
     }
 
-    if (data.answer && doc.id === selectedUser) {
+    if (data.answer) {
       await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
+    }
+
+    if (data.candidate) {
+      let candidate = new RTCIceCandidate(JSON.parse(data.candidate));
+      pc.addIceCandidate(candidate);
     }
   });
 });
 
 function endCall() {
-  pc.close();
+  if (pc) pc.close();
   alert("Call Ended");
 }
 
 // LOAD CHAT
 function loadChat() {
-  db.collection("messages").orderBy("time").onSnapshot(snap => {
-    let div = document.getElementById("chat");
-    div.innerHTML = "";
+  db.collection("messages")
+    .where("chatId", "==", getChatId())
+    .orderBy("time")
+    .onSnapshot(snap => {
+      let div = document.getElementById("chat");
+      div.innerHTML = "";
 
-    snap.forEach(doc => {
-      let m = doc.data();
-
-      if (
-        (m.from === currentUser && m.to === selectedUser) ||
-        (m.from === selectedUser && m.to === currentUser)
-      ) {
+      snap.forEach(doc => {
+        let m = doc.data();
         let cls = m.from === currentUser ? "me" : "other";
 
         let content = "";
@@ -259,9 +261,8 @@ function loadChat() {
         else if (m.type === "audio") content = `<audio controls src="${m.audio}"></audio>`;
 
         div.innerHTML += `<div class="msg ${cls}">${content}</div>`;
-      }
+      });
     });
-  });
 }
 </script>
 
