@@ -1,251 +1,274 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>💖 Dating App SIMPLE WORKING FIXED</title>
+  <title>💖 Dating App FINAL PRO</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <style>
-    body { font-family: Arial; margin: 0; background: #ece5dd; }
-    header { background: #ff4d6d; color: white; padding: 15px; text-align: center; }
+    body { font-family: Arial; margin: 0; background: #ece5dd; transition: 0.3s; }
+    .dark { background: #1e1e1e; color: white; }
 
-    .top { display: flex; padding: 10px; gap: 5px; background: white; }
+    header {
+      background: #ff4d6d;
+      color: white;
+      padding: 15px;
+      text-align: center;
+      font-weight: bold;
+    }
+
+    .top {
+      padding: 10px;
+      display: flex;
+      gap: 5px;
+      background: #fff;
+    }
+
+    .dark .top { background: #2c2c2c; }
+
     .top input { flex: 1; padding: 10px; }
 
     .container { display: flex; height: calc(100vh - 120px); }
 
-    #users { width: 35%; background: white; overflow-y: auto; }
-    #users div { padding: 10px; border-bottom: 1px solid #eee; cursor: pointer; }
+    #usersPanel {
+      width: 35%;
+      background: white;
+      overflow-y: auto;
+      border-right: 1px solid #ddd;
+    }
 
-    #chatBox { width: 65%; display: flex; flex-direction: column; }
+    .dark #usersPanel { background: #2c2c2c; }
+
+    #usersPanel div {
+      padding: 10px;
+      border-bottom: 1px solid #eee;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    #usersPanel img {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      object-fit: cover;
+    }
+
+    #chatPanel { width: 65%; display: flex; flex-direction: column; }
 
     #chat { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; }
 
-    .msg { padding: 10px; margin: 5px; border-radius: 10px; max-width: 70%; }
-    .me { background: #ff4d6d; color: white; align-self: flex-end; }
-    .other { background: white; align-self: flex-start; }
+    .msg { padding: 10px; margin: 5px; border-radius: 12px; max-width: 70%; }
 
-    #inputArea { display: flex; padding: 10px; gap: 5px; flex-wrap: wrap; }
+    .me { background: #ff4d6d; color: white; align-self: flex-end; }
+    .other { background: #fff; align-self: flex-start; }
+
+    .dark .other { background: #444; color: white; }
+
+    .chat-img {
+      max-width: 150px;
+      border-radius: 10px;
+      margin-top: 5px;
+    }
+
+    #inputArea { display: flex; padding: 10px; gap: 5px; }
 
     input { padding: 10px; border-radius: 20px; border: 1px solid #ccc; }
 
-    button { padding: 10px; border-radius: 20px; border: none; background: #ff4d6d; color: white; }
-
-    video { width: 120px; margin: 5px; }
+    button {
+      padding: 10px;
+      border-radius: 20px;
+      border: none;
+      background: #ff4d6d;
+      color: white;
+      cursor: pointer;
+    }
   </style>
 </head>
 
 <body>
 
-<header>💖 Dating App SIMPLE FIXED (WORKING)</header>
+<header>
+💖 Dating App FINAL PRO
+<button onclick="toggleDark()">🌙</button>
+</header>
 
 <div class="top">
   <input id="name" placeholder="Enter name">
-  <button onclick="join()">Join</button>
+  <input id="photo" placeholder="Profile Image URL">
+  <button onclick="addUser()">Enter</button>
 </div>
 
 <div class="container">
+  <div id="usersPanel"></div>
 
-  <div id="users"></div>
-
-  <div id="chatBox">
-    <div id="title">Select user</div>
+  <div id="chatPanel">
+    <div id="chatHeader">Select user</div>
     <div id="chat"></div>
 
     <div id="inputArea">
-      <input id="msg" placeholder="Message" onkeypress="enter(event)">
-      <button onclick="send()">Send</button>
-      <button onclick="sendImage()">📷</button>
-      <button onclick="recordVoice()">🎤</button>
-      <button onclick="call()">📞</button>
+      <input id="msg" placeholder="Message" onkeypress="handleEnter(event)">
+      <input id="imgUrl" placeholder="Image URL">
+      <button onclick="sendMsg()">Send</button>
+      <button onclick="sendImageURL()">Img</button>
     </div>
-
-    <video id="local" autoplay muted></video>
-    <video id="remote" autoplay></video>
   </div>
 </div>
 
+<audio id="msgSound" src="https://www.soundjay.com/buttons/sounds/button-3.mp3"></audio>
+
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
 
 <script>
 const firebaseConfig = {
-  apiKey: "YOUR_KEY",
-  authDomain: "YOUR_DOMAIN",
-  projectId: "YOUR_PROJECT",
-  storageBucket: "YOUR_BUCKET"
+  apiKey: "AIzaSy...",
+  authDomain: "lovedatingapp-70584.firebaseapp.com",
+  projectId: "lovedatingapp-70584",
 };
 
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
-const storage = firebase.storage();
 
-let me = "";
-let other = "";
-let pc;
+let currentUser = "";
+let selectedUser = "";
+let unsubscribeChat = null;
 
-function chatId(){
-  if(!me || !other) return "";
-  return [me, other].sort().join("_");
+// DARK MODE
+function toggleDark() {
+  document.body.classList.toggle("dark");
 }
 
-// JOIN
-function join(){
-  me = document.getElementById("name").value.trim();
-  if(!me) return alert("Enter name");
+// ADD USER
+function addUser() {
+  let name = document.getElementById("name").value.trim();
+  let photo = document.getElementById("photo").value.trim();
 
-  db.collection("users").doc(me).set({name:me})
-    .then(()=>alert("Joined ✔"))
-    .catch(err=>alert(err.message));
+  if (!name) return alert("Enter name!");
+
+  currentUser = name;
+
+  db.collection("users").doc(name).set({
+    name,
+    photo: photo || "https://randomuser.me/api/portraits/men/1.jpg",
+    online: true,
+    lastSeen: Date.now()
+  });
+
+  document.getElementById("name").disabled = true;
 }
 
-// USERS
- db.collection("users").onSnapshot(snap=>{
-  let box=document.getElementById("users");
-  box.innerHTML="";
+// USERS LIST
+db.collection("users").onSnapshot(snapshot => {
+  let div = document.getElementById("usersPanel");
+  div.innerHTML = "";
 
-  snap.forEach(d=>{
-    let u=d.data();
-    if(u.name===me) return;
-    box.innerHTML+=`<div onclick="openChat('${u.name}')">${u.name}</div>`;
+  snapshot.forEach(doc => {
+    let u = doc.data();
+    if (u.name === currentUser) return;
+
+    div.innerHTML += `
+      <div onclick="selectUser('${u.name}')">
+        <img src="${u.photo}" onerror="this.src='https://i.imgur.com/1X6G7YQ.png'">
+        <div>
+          <b>${u.name}</b>
+        </div>
+      </div>
+    `;
   });
 });
 
-function openChat(u){
-  other=u;
-  document.getElementById("title").innerText=u;
-  load();
+// SELECT USER
+function selectUser(user) {
+  selectedUser = user;
+  document.getElementById("chatHeader").innerText = user;
+  loadChat();
 }
 
-// TEXT
-function send(){
-  let m=document.getElementById("msg").value.trim();
-  if(!m||!other||!me) return;
+// SEND TEXT
+function sendMsg() {
+  let msg = document.getElementById("msg").value.trim();
+
+  if (!selectedUser) {
+    alert("Pehle user select karo!");
+    return;
+  }
+
+  if (!msg) return;
 
   db.collection("messages").add({
-    from:me,to:other,text:m,type:"text",chatId:chatId(),time:Date.now()
+    from: currentUser,
+    to: selectedUser,
+    text: msg,
+    type: "text",
+    time: Date.now()
   });
 
-  document.getElementById("msg").value="";
+  document.getElementById("msg").value = "";
 }
 
-function enter(e){ if(e.key=="Enter") send(); }
+// SEND IMAGE
+function sendImageURL() {
+  let url = document.getElementById("imgUrl").value.trim();
 
-// IMAGE
-function sendImage(){
-  let input=document.createElement("input");
-  input.type="file";
+  if (!selectedUser) {
+    alert("Pehle user select karo!");
+    return;
+  }
 
-  input.onchange=e=>{
-    let file=e.target.files[0];
-    let reader=new FileReader();
+  if (!url.startsWith("http")) {
+    alert("Valid image URL daalo!");
+    return;
+  }
 
-    reader.onload=()=>{
-      db.collection("messages").add({
-        from:me,to:other,image:reader.result,type:"image",chatId:chatId(),time:Date.now()
-      });
-    };
-
-    reader.readAsDataURL(file);
-  };
-
-  input.click();
-}
-
-// VOICE
-function recordVoice(){
-  if(!other) return;
-
-  navigator.mediaDevices.getUserMedia({audio:true}).then(stream=>{
-    let r=new MediaRecorder(stream);
-    let chunks=[];
-
-    r.ondataavailable=e=>chunks.push(e.data);
-
-    r.onstop=()=>{
-      let blob=new Blob(chunks);
-      let reader=new FileReader();
-
-      reader.onload=()=>{
-        db.collection("messages").add({
-          from:me,to:other,audio:reader.result,type:"audio",chatId:chatId(),time:Date.now()
-        });
-      };
-
-      reader.readAsDataURL(blob);
-    };
-
-    r.start();
-    setTimeout(()=>r.stop(),3000);
+  db.collection("messages").add({
+    from: currentUser,
+    to: selectedUser,
+    img: url,
+    type: "img",
+    time: Date.now()
   });
+
+  document.getElementById("imgUrl").value = "";
 }
 
-// CALL
-function createPC(){
-  pc=new RTCPeerConnection();
-
-  pc.ontrack=e=>{
-    document.getElementById("remote").srcObject=e.streams[0];
-  };
-
-  navigator.mediaDevices.getUserMedia({video:true,audio:true}).then(stream=>{
-    document.getElementById("local").srcObject=stream;
-    stream.getTracks().forEach(t=>pc.addTrack(t,stream));
-  });
+// ENTER KEY SEND
+function handleEnter(e) {
+  if (e.key === "Enter") sendMsg();
 }
-
-async function call(){
-  if(!other||!me) return;
-
-  createPC();
-
-  let offer=await pc.createOffer();
-  await pc.setLocalDescription(offer);
-
-  db.collection("calls").doc(chatId()).set({offer});
-}
-
- db.collection("calls").onSnapshot(async snap=>{
-  snap.forEach(async d=>{
-    let data=d.data();
-    if(!chatId()) return;
-
-    if(!pc && data.offer) createPC();
-
-    if(data.offer && d.id===chatId()){
-      await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
-      let ans=await pc.createAnswer();
-      await pc.setLocalDescription(ans);
-
-      db.collection("calls").doc(chatId()).set({answer:ans});
-    }
-
-    if(data.answer){
-      await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
-    }
-  });
-});
 
 // LOAD CHAT
-function load(){
-  db.collection("messages").onSnapshot(snap=>{
-    let box=document.getElementById("chat");
-    box.innerHTML="";
+function loadChat() {
 
-    snap.forEach(d=>{
-      let m=d.data();
-      if(m.chatId!==chatId()) return;
+  if (unsubscribeChat) unsubscribeChat();
 
-      let cls=m.from===me?"me":"other";
-      let html="";
+  unsubscribeChat = db.collection("messages")
+    .orderBy("time")
+    .onSnapshot(snapshot => {
 
-      if(m.type=="text") html=m.text;
-      if(m.type=="image") html=`<img src="${m.image}" width="150">`;
-      if(m.type=="audio") html=`<audio controls src="${m.audio}"></audio>`;
+      let chatDiv = document.getElementById("chat");
+      chatDiv.innerHTML = "";
 
-      box.innerHTML+=`<div class="msg ${cls}">${html}</div>`;
+      snapshot.forEach(doc => {
+        let m = doc.data();
+
+        if (
+          (m.from === currentUser && m.to === selectedUser) ||
+          (m.from === selectedUser && m.to === currentUser)
+        ) {
+
+          let cls = m.from === currentUser ? "me" : "other";
+
+          let content = m.type === "text"
+            ? m.text
+            : `<img src="${m.img}" class="chat-img" onerror="this.src='https://i.imgur.com/1X6G7YQ.png'">`;
+
+          chatDiv.innerHTML += `<div class="msg ${cls}">${content}</div>`;
+        }
+      });
+
+      chatDiv.scrollTop = chatDiv.scrollHeight;
     });
-  });
 }
 </script>
 
