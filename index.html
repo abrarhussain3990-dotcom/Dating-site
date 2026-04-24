@@ -83,6 +83,14 @@
       color: white;
       cursor: pointer;
     }
+
+    .actions {
+      padding: 10px;
+      text-align: center;
+      background: #fff;
+    }
+
+    .dark .actions { background: #2c2c2c; }
   </style>
 </head>
 
@@ -100,7 +108,14 @@
 </div>
 
 <div class="container">
-  <div id="usersPanel"></div>
+  <div style="width:35%;">
+    <div id="usersPanel"></div>
+
+    <div class="actions">
+      <button onclick="likeUser()">❤️ Like</button>
+      <button onclick="skipUser()">❌ Skip</button>
+    </div>
+  </div>
 
   <div id="chatPanel">
     <div id="chatHeader">Select user</div>
@@ -185,15 +200,45 @@ function selectUser(user) {
   loadChat();
 }
 
+// ❤️ LIKE
+function likeUser() {
+  if (!selectedUser) return alert("Pehle user select karo!");
+
+  db.collection("likes").add({
+    from: currentUser,
+    to: selectedUser,
+    time: Date.now()
+  }).then(() => {
+    checkMatch(selectedUser);
+  });
+
+  alert("Liked ❤️");
+}
+
+// ❌ SKIP
+function skipUser() {
+  if (!selectedUser) return alert("Pehle user select karo!");
+  alert("Skipped ❌");
+}
+
+// 🔥 MATCH CHECK
+function checkMatch(user) {
+  db.collection("likes")
+    .where("from", "==", user)
+    .where("to", "==", currentUser)
+    .get()
+    .then(snapshot => {
+      if (!snapshot.empty) {
+        alert("🔥 MATCH with " + user);
+      }
+    });
+}
+
 // SEND TEXT
 function sendMsg() {
   let msg = document.getElementById("msg").value.trim();
 
-  if (!selectedUser) {
-    alert("Pehle user select karo!");
-    return;
-  }
-
+  if (!selectedUser) return alert("Pehle user select karo!");
   if (!msg) return;
 
   db.collection("messages").add({
@@ -211,15 +256,8 @@ function sendMsg() {
 function sendImageURL() {
   let url = document.getElementById("imgUrl").value.trim();
 
-  if (!selectedUser) {
-    alert("Pehle user select karo!");
-    return;
-  }
-
-  if (!url.startsWith("http")) {
-    alert("Valid image URL daalo!");
-    return;
-  }
+  if (!selectedUser) return alert("Pehle user select karo!");
+  if (!url.startsWith("http")) return alert("Valid image URL daalo!");
 
   db.collection("messages").add({
     from: currentUser,
@@ -232,14 +270,13 @@ function sendImageURL() {
   document.getElementById("imgUrl").value = "";
 }
 
-// ENTER KEY SEND
+// ENTER KEY
 function handleEnter(e) {
   if (e.key === "Enter") sendMsg();
 }
 
-// LOAD CHAT
+// CHAT LOAD
 function loadChat() {
-
   if (unsubscribeChat) unsubscribeChat();
 
   unsubscribeChat = db.collection("messages")
@@ -256,12 +293,11 @@ function loadChat() {
           (m.from === currentUser && m.to === selectedUser) ||
           (m.from === selectedUser && m.to === currentUser)
         ) {
-
           let cls = m.from === currentUser ? "me" : "other";
 
           let content = m.type === "text"
             ? m.text
-            : `<img src="${m.img}" class="chat-img" onerror="this.src='https://i.imgur.com/1X6G7YQ.png'">`;
+            : `<img src="${m.img}" class="chat-img">`;
 
           chatDiv.innerHTML += `<div class="msg ${cls}">${content}</div>`;
         }
@@ -270,6 +306,20 @@ function loadChat() {
       chatDiv.scrollTop = chatDiv.scrollHeight;
     });
 }
+
+// 👉 SWIPE
+let startX = 0;
+
+document.getElementById("usersPanel").addEventListener("touchstart", e => {
+  startX = e.touches[0].clientX;
+});
+
+document.getElementById("usersPanel").addEventListener("touchend", e => {
+  let endX = e.changedTouches[0].clientX;
+
+  if (endX - startX > 50) likeUser();     // Right swipe
+  else if (startX - endX > 50) skipUser(); // Left swipe
+});
 </script>
 
 </body>
