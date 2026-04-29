@@ -103,12 +103,12 @@
   <div id="usersPanel"></div>
 
   <div id="chatPanel">
-    <div id="chatHeader">Select user</div>
+    <div id="chatHeader">Chat System Active</div>
     <div id="chat"></div>
 
     <div id="inputArea">
-      <input id="msg" placeholder="Message" onkeypress="handleEnter(event)">
-      <input id="imgUrl" placeholder="Image URL">
+      <input id="msg" placeholder="Message + Enter name auto send" onkeypress="handleEnter(event)">
+      <input id="imgUrl" placeholder="Image URL + Enter name prompt">
       <button onclick="sendMsg()">Send</button>
       <button onclick="sendImageURL()">Img</button>
     </div>
@@ -131,15 +131,14 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
 let currentUser = "";
-let selectedUser = "";
 let unsubscribeChat = null;
 
-// DARK MODE
+/* DARK MODE */
 function toggleDark() {
   document.body.classList.toggle("dark");
 }
 
-// ADD USER
+/* ADD USER (FIXED SAFE) */
 function addUser() {
   let name = document.getElementById("name").value.trim();
   let photo = document.getElementById("photo").value.trim();
@@ -153,12 +152,12 @@ function addUser() {
     photo: photo || "https://randomuser.me/api/portraits/men/1.jpg",
     online: true,
     lastSeen: Date.now()
-  });
+  }, { merge: true });
 
   document.getElementById("name").disabled = true;
 }
 
-// USERS LIST
+/* USERS LIST */
 db.collection("users").onSnapshot(snapshot => {
   let div = document.getElementById("usersPanel");
   div.innerHTML = "";
@@ -168,37 +167,30 @@ db.collection("users").onSnapshot(snapshot => {
     if (u.name === currentUser) return;
 
     div.innerHTML += `
-      <div onclick="selectUser('${u.name}')">
-        <img src="${u.photo}" onerror="this.src='https://i.imgur.com/1X6G7YQ.png'">
-        <div>
-          <b>${u.name}</b>
-        </div>
+      <div>
+        <img src="${u.photo}">
+        <div><b>${u.name}</b></div>
       </div>
     `;
   });
 });
 
-// SELECT USER
-function selectUser(user) {
-  selectedUser = user;
-  document.getElementById("chatHeader").innerText = user;
-  loadChat();
+/* CHAT ID */
+function getChatId(to) {
+  return [currentUser, to].sort().join("_");
 }
 
-// SEND TEXT
+/* SEND TEXT (AUTO NAME INPUT) */
 function sendMsg() {
   let msg = document.getElementById("msg").value.trim();
-
-  if (!selectedUser) {
-    alert("Pehle user select karo!");
-    return;
-  }
-
   if (!msg) return;
+
+  let to = prompt("Enter receiver name:");
+  if (!to) return;
 
   db.collection("messages").add({
     from: currentUser,
-    to: selectedUser,
+    to: to,
     text: msg,
     type: "text",
     time: Date.now()
@@ -207,23 +199,17 @@ function sendMsg() {
   document.getElementById("msg").value = "";
 }
 
-// SEND IMAGE
+/* SEND IMAGE */
 function sendImageURL() {
   let url = document.getElementById("imgUrl").value.trim();
+  if (!url.startsWith("http")) return alert("Valid URL required");
 
-  if (!selectedUser) {
-    alert("Pehle user select karo!");
-    return;
-  }
-
-  if (!url.startsWith("http")) {
-    alert("Valid image URL daalo!");
-    return;
-  }
+  let to = prompt("Enter receiver name:");
+  if (!to) return;
 
   db.collection("messages").add({
     from: currentUser,
-    to: selectedUser,
+    to: to,
     img: url,
     type: "img",
     time: Date.now()
@@ -232,44 +218,36 @@ function sendImageURL() {
   document.getElementById("imgUrl").value = "";
 }
 
-// ENTER KEY SEND
+/* ENTER KEY */
 function handleEnter(e) {
   if (e.key === "Enter") sendMsg();
 }
 
-// LOAD CHAT
-function loadChat() {
+/* LOAD CHAT (GLOBAL VIEW FIXED) */
+db.collection("messages")
+.orderBy("time")
+.onSnapshot(snapshot => {
 
-  if (unsubscribeChat) unsubscribeChat();
+  let chatDiv = document.getElementById("chat");
+  chatDiv.innerHTML = "";
 
-  unsubscribeChat = db.collection("messages")
-    .orderBy("time")
-    .onSnapshot(snapshot => {
+  snapshot.forEach(doc => {
+    let m = doc.data();
 
-      let chatDiv = document.getElementById("chat");
-      chatDiv.innerHTML = "";
+    if (m.from === currentUser || m.to === currentUser) {
 
-      snapshot.forEach(doc => {
-        let m = doc.data();
+      let cls = m.from === currentUser ? "me" : "other";
 
-        if (
-          (m.from === currentUser && m.to === selectedUser) ||
-          (m.from === selectedUser && m.to === currentUser)
-        ) {
+      let content = m.type === "text"
+        ? m.text
+        : `<img src="${m.img}" class="chat-img">`;
 
-          let cls = m.from === currentUser ? "me" : "other";
+      chatDiv.innerHTML += `<div class="msg ${cls}">${content}</div>`;
+    }
+  });
 
-          let content = m.type === "text"
-            ? m.text
-            : `<img src="${m.img}" class="chat-img" onerror="this.src='https://i.imgur.com/1X6G7YQ.png'">`;
-
-          chatDiv.innerHTML += `<div class="msg ${cls}">${content}</div>`;
-        }
-      });
-
-      chatDiv.scrollTop = chatDiv.scrollHeight;
-    });
-}
+  chatDiv.scrollTop = chatDiv.scrollHeight;
+});
 </script>
 
 </body>
