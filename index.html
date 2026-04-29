@@ -1,14 +1,14 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>💖 Dating Chat PRO MAX</title>
+  <title>💖 Chat FIXED VERSION</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <style>
     body { font-family: Arial; margin: 0; background: #ece5dd; }
     header { background:#ff4d6d; color:white; padding:15px; text-align:center; }
 
-    .top { display:flex; gap:5px; padding:10px; background:#fff; }
+    .top { display:flex; gap:5px; padding:10px; background:white; }
     .top input { flex:1; padding:10px; }
 
     .container { display:flex; height:calc(100vh - 120px); }
@@ -23,8 +23,8 @@
     #usersPanel div {
       padding:10px;
       display:flex;
-      gap:10px;
       align-items:center;
+      gap:10px;
       cursor:pointer;
       border-bottom:1px solid #eee;
     }
@@ -40,7 +40,6 @@
     #chat { flex:1; padding:10px; overflow-y:auto; display:flex; flex-direction:column; }
 
     .msg { padding:10px; margin:5px; border-radius:10px; max-width:70%; }
-
     .me { background:#ff4d6d; color:white; align-self:flex-end; }
     .other { background:white; align-self:flex-start; }
 
@@ -54,7 +53,7 @@
 
 <body>
 
-<header>💖 Dating Chat PRO MAX</header>
+<header>💖 FIXED CHAT APP</header>
 
 <div class="top">
   <input id="name" placeholder="Enter name">
@@ -72,9 +71,7 @@
 
     <div id="inputArea">
       <input id="msg" placeholder="Message" onkeypress="enterSend(event)">
-      <input id="imgUrl" placeholder="Image URL">
       <button onclick="sendMsg()">Send</button>
-      <button onclick="sendImg()">Img</button>
     </div>
   </div>
 
@@ -97,7 +94,7 @@ let currentUser = "";
 let selectedUser = "";
 let unsub = null;
 
-/* ADD USER */
+/* ================= USER SAVE ================= */
 function addUser() {
   let name = document.getElementById("name").value.trim();
   let photo = document.getElementById("photo").value.trim();
@@ -106,8 +103,9 @@ function addUser() {
 
   currentUser = name;
 
+  // SIMPLE SAFE SAVE (NO ISSUE)
   db.collection("users").doc(name).set({
-    name,
+    name: name,
     photo: photo || "https://i.imgur.com/1X6G7YQ.png",
     time: Date.now()
   });
@@ -115,13 +113,14 @@ function addUser() {
   document.getElementById("name").disabled = true;
 }
 
-/* USERS */
+/* ================= SHOW USERS ================= */
 db.collection("users").onSnapshot(snap => {
   let div = document.getElementById("usersPanel");
   div.innerHTML = "";
 
   snap.forEach(doc => {
     let u = doc.data();
+
     if (u.name === currentUser) return;
 
     div.innerHTML += `
@@ -133,66 +132,47 @@ db.collection("users").onSnapshot(snap => {
   });
 });
 
-/* OPEN CHAT */
+/* ================= OPEN CHAT ================= */
 function openChat(user) {
   selectedUser = user;
   document.getElementById("chatHeader").innerText = "Chat with " + user;
   loadChat();
 }
 
-/* CHAT ID */
+/* ================= CHAT ID ================= */
 function chatId() {
   return [currentUser, selectedUser].sort().join("_");
 }
 
-/* SEND MSG */
+/* ================= SEND MSG ================= */
 function sendMsg() {
   let msg = document.getElementById("msg").value.trim();
   if (!selectedUser || !msg) return;
 
   db.collection("chats")
     .doc(chatId())
-    .collection("msgs")
+    .collection("messages")
     .add({
       from: currentUser,
       text: msg,
-      type: "text",
       time: Date.now()
     });
 
   document.getElementById("msg").value = "";
 }
 
-/* SEND IMAGE */
-function sendImg() {
-  let url = document.getElementById("imgUrl").value.trim();
-  if (!selectedUser || !url) return;
-
-  db.collection("chats")
-    .doc(chatId())
-    .collection("msgs")
-    .add({
-      from: currentUser,
-      img: url,
-      type: "img",
-      time: Date.now()
-    });
-
-  document.getElementById("imgUrl").value = "";
-}
-
-/* ENTER KEY */
+/* ================= ENTER ================= */
 function enterSend(e) {
   if (e.key === "Enter") sendMsg();
 }
 
-/* LOAD CHAT */
+/* ================= LOAD CHAT ================= */
 function loadChat() {
   if (unsub) unsub();
 
   unsub = db.collection("chats")
     .doc(chatId())
-    .collection("msgs")
+    .collection("messages")
     .orderBy("time")
     .onSnapshot(snap => {
 
@@ -201,13 +181,10 @@ function loadChat() {
 
       snap.forEach(doc => {
         let m = doc.data();
+
         let cls = m.from === currentUser ? "me" : "other";
 
-        let content = m.type === "text"
-          ? m.text
-          : `<img src="${m.img}" width="150">`;
-
-        chat.innerHTML += `<div class="msg ${cls}">${content}</div>`;
+        chat.innerHTML += `<div class="msg ${cls}">${m.text}</div>`;
       });
 
       chat.scrollTop = chat.scrollHeight;
