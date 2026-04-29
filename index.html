@@ -103,12 +103,12 @@
   <div id="usersPanel"></div>
 
   <div id="chatPanel">
-    <div id="chatHeader">Chat System Active</div>
+    <div id="chatHeader">Select user or send directly</div>
     <div id="chat"></div>
 
     <div id="inputArea">
-      <input id="msg" placeholder="Message + Enter name auto send" onkeypress="handleEnter(event)">
-      <input id="imgUrl" placeholder="Image URL + Enter name prompt">
+      <input id="msg" placeholder="Message" onkeypress="handleEnter(event)">
+      <input id="imgUrl" placeholder="Image URL">
       <button onclick="sendMsg()">Send</button>
       <button onclick="sendImageURL()">Img</button>
     </div>
@@ -131,14 +131,14 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
 let currentUser = "";
-let unsubscribeChat = null;
+let selectedUser = null;
 
 /* DARK MODE */
 function toggleDark() {
   document.body.classList.toggle("dark");
 }
 
-/* ADD USER (FIXED SAFE) */
+/* ADD USER */
 function addUser() {
   let name = document.getElementById("name").value.trim();
   let photo = document.getElementById("photo").value.trim();
@@ -167,7 +167,7 @@ db.collection("users").onSnapshot(snapshot => {
     if (u.name === currentUser) return;
 
     div.innerHTML += `
-      <div>
+      <div onclick="openChat('${u.name}')">
         <img src="${u.photo}">
         <div><b>${u.name}</b></div>
       </div>
@@ -175,17 +175,18 @@ db.collection("users").onSnapshot(snapshot => {
   });
 });
 
-/* CHAT ID */
-function getChatId(to) {
-  return [currentUser, to].sort().join("_");
+/* OPEN CHAT */
+function openChat(user) {
+  selectedUser = user;
+  document.getElementById("chatHeader").innerText = "Chat with " + user;
 }
 
-/* SEND TEXT (AUTO NAME INPUT) */
+/* SEND MESSAGE */
 function sendMsg() {
   let msg = document.getElementById("msg").value.trim();
   if (!msg) return;
 
-  let to = prompt("Enter receiver name:");
+  let to = selectedUser || prompt("Enter receiver name:");
   if (!to) return;
 
   db.collection("messages").add({
@@ -202,9 +203,9 @@ function sendMsg() {
 /* SEND IMAGE */
 function sendImageURL() {
   let url = document.getElementById("imgUrl").value.trim();
-  if (!url.startsWith("http")) return alert("Valid URL required");
+  if (!url.startsWith("http")) return;
 
-  let to = prompt("Enter receiver name:");
+  let to = selectedUser || prompt("Enter receiver name:");
   if (!to) return;
 
   db.collection("messages").add({
@@ -223,7 +224,7 @@ function handleEnter(e) {
   if (e.key === "Enter") sendMsg();
 }
 
-/* LOAD CHAT (GLOBAL VIEW FIXED) */
+/* LOAD CHAT (FIXED DELIVERY SYSTEM) */
 db.collection("messages")
 .orderBy("time")
 .onSnapshot(snapshot => {
