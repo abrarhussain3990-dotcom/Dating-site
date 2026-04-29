@@ -139,7 +139,9 @@ function toggleDark() {
   document.body.classList.toggle("dark");
 }
 
-// ADD USER
+/* =======================
+   USER ADD (FIXED)
+======================= */
 function addUser() {
   let name = document.getElementById("name").value.trim();
   let photo = document.getElementById("photo").value.trim();
@@ -148,17 +150,27 @@ function addUser() {
 
   currentUser = name;
 
-  db.collection("users").doc(name).set({
-    name,
-    photo: photo || "https://randomuser.me/api/portraits/men/1.jpg",
-    online: true,
-    lastSeen: Date.now()
-  });
+  db.collection("users").where("name", "==", name).get()
+    .then(snapshot => {
+      if (!snapshot.empty) {
+        alert("User already exists!");
+        return;
+      }
 
-  document.getElementById("name").disabled = true;
+      db.collection("users").add({
+        name,
+        photo: photo || "https://randomuser.me/api/portraits/men/1.jpg",
+        online: true,
+        lastSeen: Date.now()
+      });
+
+      document.getElementById("name").disabled = true;
+    });
 }
 
-// USERS LIST
+/* =======================
+   USERS LIST
+======================= */
 db.collection("users").onSnapshot(snapshot => {
   let div = document.getElementById("usersPanel");
   div.innerHTML = "";
@@ -169,34 +181,34 @@ db.collection("users").onSnapshot(snapshot => {
 
     div.innerHTML += `
       <div onclick="selectUser('${u.name}')">
-        <img src="${u.photo}" onerror="this.src='https://i.imgur.com/1X6G7YQ.png'">
-        <div>
-          <b>${u.name}</b>
-        </div>
+        <img src="${u.photo}">
+        <div><b>${u.name}</b></div>
       </div>
     `;
   });
 });
 
-// SELECT USER
+/* =======================
+   SELECT USER
+======================= */
 function selectUser(user) {
   selectedUser = user;
   document.getElementById("chatHeader").innerText = user;
   loadChat();
 }
 
-// SEND TEXT
+/* =======================
+   SEND MESSAGE (FIXED CHAT ROOM)
+======================= */
 function sendMsg() {
   let msg = document.getElementById("msg").value.trim();
 
-  if (!selectedUser) {
-    alert("Pehle user select karo!");
-    return;
-  }
-
+  if (!selectedUser) return alert("Pehle user select karo!");
   if (!msg) return;
 
-  db.collection("messages").add({
+  let chatId = [currentUser, selectedUser].sort().join("_");
+
+  db.collection("chats").doc(chatId).collection("messages").add({
     from: currentUser,
     to: selectedUser,
     text: msg,
@@ -207,21 +219,18 @@ function sendMsg() {
   document.getElementById("msg").value = "";
 }
 
-// SEND IMAGE
+/* =======================
+   SEND IMAGE
+======================= */
 function sendImageURL() {
   let url = document.getElementById("imgUrl").value.trim();
 
-  if (!selectedUser) {
-    alert("Pehle user select karo!");
-    return;
-  }
+  if (!selectedUser) return alert("Pehle user select karo!");
+  if (!url.startsWith("http")) return alert("Valid image URL daalo!");
 
-  if (!url.startsWith("http")) {
-    alert("Valid image URL daalo!");
-    return;
-  }
+  let chatId = [currentUser, selectedUser].sort().join("_");
 
-  db.collection("messages").add({
+  db.collection("chats").doc(chatId).collection("messages").add({
     from: currentUser,
     to: selectedUser,
     img: url,
@@ -232,17 +241,25 @@ function sendImageURL() {
   document.getElementById("imgUrl").value = "";
 }
 
-// ENTER KEY SEND
+/* =======================
+   ENTER KEY
+======================= */
 function handleEnter(e) {
   if (e.key === "Enter") sendMsg();
 }
 
-// LOAD CHAT
+/* =======================
+   LOAD CHAT (FIXED)
+======================= */
 function loadChat() {
 
   if (unsubscribeChat) unsubscribeChat();
 
-  unsubscribeChat = db.collection("messages")
+  let chatId = [currentUser, selectedUser].sort().join("_");
+
+  unsubscribeChat = db.collection("chats")
+    .doc(chatId)
+    .collection("messages")
     .orderBy("time")
     .onSnapshot(snapshot => {
 
@@ -252,19 +269,13 @@ function loadChat() {
       snapshot.forEach(doc => {
         let m = doc.data();
 
-        if (
-          (m.from === currentUser && m.to === selectedUser) ||
-          (m.from === selectedUser && m.to === currentUser)
-        ) {
+        let cls = m.from === currentUser ? "me" : "other";
 
-          let cls = m.from === currentUser ? "me" : "other";
+        let content = m.type === "text"
+          ? m.text
+          : `<img src="${m.img}" class="chat-img">`;
 
-          let content = m.type === "text"
-            ? m.text
-            : `<img src="${m.img}" class="chat-img" onerror="this.src='https://i.imgur.com/1X6G7YQ.png'">`;
-
-          chatDiv.innerHTML += `<div class="msg ${cls}">${content}</div>`;
-        }
+        chatDiv.innerHTML += `<div class="msg ${cls}">${content}</div>`;
       });
 
       chatDiv.scrollTop = chatDiv.scrollHeight;
