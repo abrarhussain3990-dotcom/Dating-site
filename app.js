@@ -1,137 +1,143 @@
-import { db, storage } from "./firebase.js";
-import {
-  collection, addDoc, getDocs, onSnapshot, query, orderBy
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import {
-  ref, uploadBytes, getDownloadURL
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
-
-let myName = "";
-window.myName = "";
-let currentChat = "";
-
-// 🔥 ENTER FUNCTION (MAIN FIX)
-window.enter = async function(){
-
-  const name = document.getElementById("name").value;
-  const file = document.getElementById("photo").files[0];
-  const s = document.getElementById("status");
-
-  if(!name || !file){
-    s.innerText="❌ Fill all";
-    return;
-  }
-
-  try{
-    s.innerText="⏳ Uploading...";
-
-    const storageRef = ref(storage,"photos/"+Date.now());
-    await uploadBytes(storageRef,file);
-    const url = await getDownloadURL(storageRef);
-
-    await addDoc(collection(db,"users"),{
-      name:name,
-      photo:url
-    });
-
-    myName = name;
-    window.myName = name;
-
-    s.innerText="✅ Entered";
-
-    loadUsers();
-
-  }catch(e){
-    s.innerText="❌ "+e.message;
-  }
+const firebaseConfig = {
+  apiKey: "AIzaSy...",
+  authDomain: "lovedatingapp-70584.firebaseapp.com",
+  projectId: "lovedatingapp-70584",
 };
 
-// LOAD USERS
-async function loadUsers(){
-  const snap = await getDocs(collection(db,"users"));
-  const div = document.getElementById("users");
-  div.innerHTML="";
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
 
-  snap.forEach(doc=>{
-    const u = doc.data();
+let currentUser = "";
+let selectedUser = "";
+let unsubscribeChat = null;
 
-    if(u.name !== myName){
-      div.innerHTML += `
-      <div class="card">
+/* ================= DARK MODE ================= */
+function toggleDark() {
+  document.body.classList.toggle("dark");
+}
+
+/* ================= USER ADD (AUTO CHAT READY) ================= */
+function addUser() {
+  let name = document.getElementById("name").value.trim();
+  let photo = document.getElementById("photo").value.trim();
+
+  if (!name) return alert("Enter name!");
+
+  currentUser = name;
+
+  db.collection("users").doc(name).set({
+    name,
+    photo: photo || "https://randomuser.me/api/portraits/men/1.jpg",
+    online: true,
+    lastSeen: Date.now()
+  });
+
+  document.getElementById("name").disabled = true;
+}
+
+/* ================= USERS LIST ================= */
+db.collection("users").onSnapshot(snapshot => {
+  let div = document.getElementById("usersPanel");
+  div.innerHTML = "";
+
+  snapshot.forEach(doc => {
+    let u = doc.data();
+    if (u.name === currentUser) return;
+
+    div.innerHTML += `
+      <div onclick="openChat('${u.name}')">
         <img src="${u.photo}">
-        <h3>${u.name}</h3>
-        <button onclick="likeUser('${u.name}')">Like ❤️</button>
-      </div>`;
-    }
+        <div><b>${u.name}</b></div>
+      </div>
+    `;
   });
+});
+
+/* ================= AUTO CHAT OPEN ================= */
+function openChat(user) {
+  selectedUser = user;
+  document.getElementById("chatHeader").innerText = "Chat with " + user;
+  loadChat();
 }
 
-// LIKE
-window.likeUser = async function(name){
-  await addDoc(collection(db,"likes"),{
-    from:myName,
-    to:name
-  });
-
-  checkMatch(name);
-};
-
-// CHECK MATCH
-async function checkMatch(name){
-  const snap = await getDocs(collection(db,"likes"));
-  let match=false;
-
-  snap.forEach(doc=>{
-    const l = doc.data();
-    if(l.from===name && l.to===myName){
-      match=true;
-    }
-  });
-
-  if(match){
-    startChat(name);
-  }else{
-    alert("Liked ❤️ Waiting...");
-  }
+/* ================= AUTO CHAT ID ================= */
+function getChatId() {
+  return [currentUser, selectedUser].sort().join("_");
 }
 
-// CHAT
-window.startChat = function(name){
-  currentChat=name;
+/* ================= SEND MESSAGE ================= */
+function sendMsg() {
+  let msg = document.getElementById("msg").value.trim();
 
-  document.getElementById("chat").style.display="block";
-  document.getElementById("chatWith").innerText=name;
+  if (!selectedUser) return alert("Select user first!");
+  if (!msg) return;
 
-  const id=[myName,name].sort().join("_");
-
-  const q=query(collection(db,"messages"),orderBy("time"));
-
-  onSnapshot(q,snap=>{
-    const box=document.getElementById("messages");
-    box.innerHTML="";
-
-    snap.forEach(d=>{
-      const m=d.data();
-      if(m.chatId===id){
-        box.innerHTML+=`<p><b>${m.sender}:</b> ${m.text}</p>`;
-      }
+  db.collection("chats")
+    .doc(getChatId())
+    .collection("messages")
+    .add({
+      from: currentUser,
+      to: selectedUser,
+      text: msg,
+      type: "text",
+      time: Date.now()
     });
-  });
-};
 
-// SEND
-window.send = async function(){
-  const msg=document.getElementById("msg").value;
-  if(!msg)return;
+  document.getElementById("msg").value = "";
+}
 
-  const id=[myName,currentChat].sort().join("_");
+/* ================= SEND IMAGE ================= */
+function sendImageURL() {
+  let url = document.getElementById("imgUrl").value.trim();
 
-  await addDoc(collection(db,"messages"),{
-    chatId:id,
-    sender:myName,
-    text:msg,
-    time:Date.now()
-  });
+  if (!selectedUser) return alert("Select user first!");
+  if (!url.startsWith("http")) return alert("Invalid image URL!");
 
-  document.getElementById("msg").value="";
-};
+  db.collection("chats")
+    .doc(getChatId())
+    .collection("messages")
+    .add({
+      from: currentUser,
+      to: selectedUser,
+      img: url,
+      type: "img",
+      time: Date.now()
+    });
+
+  document.getElementById("imgUrl").value = "";
+}
+
+/* ================= ENTER KEY ================= */
+function handleEnter(e) {
+  if (e.key === "Enter") sendMsg();
+}
+
+/* ================= REAL TIME CHAT ================= */
+function loadChat() {
+
+  if (unsubscribeChat) unsubscribeChat();
+
+  unsubscribeChat = db.collection("chats")
+    .doc(getChatId())
+    .collection("messages")
+    .orderBy("time")
+    .onSnapshot(snapshot => {
+
+      let chatDiv = document.getElementById("chat");
+      chatDiv.innerHTML = "";
+
+      snapshot.forEach(doc => {
+        let m = doc.data();
+
+        let cls = m.from === currentUser ? "me" : "other";
+
+        let content = m.type === "text"
+          ? m.text
+          : `<img src="${m.img}" class="chat-img">`;
+
+        chatDiv.innerHTML += `<div class="msg ${cls}">${content}</div>`;
+      });
+
+      chatDiv.scrollTop = chatDiv.scrollHeight;
+    });
+}
