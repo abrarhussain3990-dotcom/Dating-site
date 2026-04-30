@@ -1,11 +1,11 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>💖 Dating App FINAL PRO</title>
+  <title>💖 Dating App PRO MAX</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <style>
-    body { font-family: Arial; margin: 0; background: #ece5dd; transition: 0.3s; }
+    body { font-family: Arial; margin: 0; background: #ece5dd; }
     .dark { background: #1e1e1e; color: white; }
 
     header {
@@ -13,83 +13,31 @@
       color: white;
       padding: 15px;
       text-align: center;
-      font-weight: bold;
     }
 
-    .top {
-      padding: 10px;
-      display: flex;
-      gap: 5px;
-      background: #fff;
-    }
-
-    .dark .top { background: #2c2c2c; }
-
-    .top input { flex: 1; padding: 10px; }
-
+    .top { display: flex; gap: 5px; padding: 10px; background: #fff; }
     .container { display: flex; height: calc(100vh - 120px); }
 
-    #usersPanel {
-      width: 35%;
-      background: white;
-      overflow-y: auto;
-      border-right: 1px solid #ddd;
-    }
-
-    .dark #usersPanel { background: #2c2c2c; }
-
-    #usersPanel div {
-      padding: 10px;
-      border-bottom: 1px solid #eee;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-
-    #usersPanel img {
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      object-fit: cover;
-    }
-
+    #usersPanel { width: 35%; background: #fff; overflow-y: auto; }
     #chatPanel { width: 65%; display: flex; flex-direction: column; }
 
     #chat { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; }
 
-    .msg { padding: 10px; margin: 5px; border-radius: 12px; max-width: 70%; }
-
+    .msg { padding: 10px; margin: 5px; border-radius: 10px; max-width: 70%; }
     .me { background: #ff4d6d; color: white; align-self: flex-end; }
     .other { background: #fff; align-self: flex-start; }
 
-    .dark .other { background: #444; color: white; }
+    .chat-img { max-width: 150px; border-radius: 10px; }
 
-    .chat-img {
-      max-width: 150px;
-      border-radius: 10px;
-      margin-top: 5px;
-    }
-
-    #inputArea { display: flex; padding: 10px; gap: 5px; }
-
-    input { padding: 10px; border-radius: 20px; border: 1px solid #ccc; }
-
-    button {
-      padding: 10px;
-      border-radius: 20px;
-      border: none;
-      background: #ff4d6d;
-      color: white;
-      cursor: pointer;
-    }
+    #inputArea { display: flex; gap: 5px; padding: 10px; }
+    input, button { padding: 10px; border-radius: 20px; }
   </style>
 </head>
 
 <body>
 
 <header>
-💖 Dating App FINAL PRO
+💖 Dating App PRO MAX
 <button onclick="toggleDark()">🌙</button>
 </header>
 
@@ -103,14 +51,13 @@
   <div id="usersPanel"></div>
 
   <div id="chatPanel">
-    <div id="chatHeader">Auto Chat System Ready</div>
+    <div id="chatHeader">Chat Ready</div>
+    <div id="typing" style="font-size:12px;color:gray"></div>
     <div id="chat"></div>
 
     <div id="inputArea">
-      <input id="msg" placeholder="Message" onkeypress="handleEnter(event)">
-      <input id="imgUrl" placeholder="Image URL">
+      <input id="msg" placeholder="Message">
       <button onclick="sendMsg()">Send</button>
-      <button onclick="sendImageURL()">Img</button>
     </div>
   </div>
 </div>
@@ -132,48 +79,38 @@ const db = firebase.firestore();
 
 let currentUser = "";
 let selectedUser = null;
-let lastSender = "";
-let unsubscribeChat = null;
 
-/* DARK MODE */
+/* DARK */
 function toggleDark() {
   document.body.classList.toggle("dark");
 }
 
 /* ADD USER */
 function addUser() {
-  let name = document.getElementById("name").value.trim();
-  let photo = document.getElementById("photo").value.trim();
+  currentUser = document.getElementById("name").value;
 
-  if (!name) return alert("Enter name!");
-
-  currentUser = name;
-
-  db.collection("users").doc(name).set({
-    name,
-    photo: photo || "https://randomuser.me/api/portraits/men/1.jpg",
+  db.collection("users").doc(currentUser).set({
     online: true,
     lastSeen: Date.now()
-  }, { merge: true });
+  });
 
-  document.getElementById("name").disabled = true;
-
-  startAutoListener(); // 🔥 auto receive start
+  startListeners();
 }
 
-/* USERS LIST */
-db.collection("users").onSnapshot(snapshot => {
+/* USERS */
+db.collection("users").onSnapshot(snap => {
   let div = document.getElementById("usersPanel");
   div.innerHTML = "";
 
-  snapshot.forEach(doc => {
+  snap.forEach(doc => {
+    if (doc.id === currentUser) return;
+
     let u = doc.data();
-    if (u.name === currentUser) return;
 
     div.innerHTML += `
-      <div onclick="openChat('${u.name}')">
-        <img src="${u.photo}">
-        <div><b>${u.name}</b></div>
+      <div onclick="openChat('${doc.id}')">
+        <b>${doc.id}</b><br>
+        <small>${u.online ? "🟢 Online" : "Last seen"}</small>
       </div>
     `;
   });
@@ -183,66 +120,34 @@ db.collection("users").onSnapshot(snapshot => {
 function openChat(user) {
   selectedUser = user;
   document.getElementById("chatHeader").innerText = "Chat with " + user;
-
-  if (unsubscribeChat) unsubscribeChat();
-  loadMessages();
 }
 
-/* SEND MESSAGE */
+/* SEND */
 function sendMsg() {
-  let msg = document.getElementById("msg").value.trim();
-  if (!msg) return;
-
-  let to = selectedUser || prompt("Enter receiver name:");
-  if (!to) return;
+  let msg = document.getElementById("msg").value;
 
   db.collection("messages").add({
     from: currentUser,
-    to: to,
+    to: selectedUser,
     text: msg,
-    type: "text",
+    status: "sent",
     time: Date.now()
   });
 
   document.getElementById("msg").value = "";
 }
 
-/* SEND IMAGE */
-function sendImageURL() {
-  let url = document.getElementById("imgUrl").value.trim();
-  if (!url.startsWith("http")) return;
+/* LISTENERS */
+function startListeners() {
 
-  let to = selectedUser || prompt("Enter receiver name:");
-  if (!to) return;
+  // messages
+  db.collection("messages").orderBy("time")
+  .onSnapshot(snap => {
 
-  db.collection("messages").add({
-    from: currentUser,
-    to: to,
-    img: url,
-    type: "img",
-    time: Date.now()
-  });
+    let chat = document.getElementById("chat");
+    chat.innerHTML = "";
 
-  document.getElementById("imgUrl").value = "";
-}
-
-/* ENTER KEY */
-function handleEnter(e) {
-  if (e.key === "Enter") sendMsg();
-}
-
-/* LOAD CHAT */
-function loadMessages() {
-
-  unsubscribeChat = db.collection("messages")
-  .orderBy("time")
-  .onSnapshot(snapshot => {
-
-    let chatDiv = document.getElementById("chat");
-    chatDiv.innerHTML = "";
-    lastSender = "";
-
-    snapshot.forEach(doc => {
+    snap.forEach(doc => {
       let m = doc.data();
 
       if (
@@ -252,54 +157,54 @@ function loadMessages() {
 
         let cls = m.from === currentUser ? "me" : "other";
 
-        let content = m.type === "text"
-          ? m.text
-          : `<img src="${m.img}" class="chat-img">`;
-
-        let nameTag = "";
-        if (lastSender !== m.from) {
-          nameTag = `<div style="font-size:11px;color:gray">${m.from}</div>`;
-          lastSender = m.from;
+        // seen update
+        if (m.to === currentUser && m.status !== "seen") {
+          doc.ref.update({ status: "seen" });
         }
 
-        chatDiv.innerHTML += `
-          ${nameTag}
-          <div class="msg ${cls}">${content}</div>
+        let tick = m.from === currentUser
+          ? (m.status === "seen" ? "✔✔" : "✔")
+          : "";
+
+        chat.innerHTML += `
+          <div class="msg ${cls}">
+            ${m.text}
+            <div style="font-size:10px">${tick}</div>
+          </div>
         `;
       }
     });
 
-    chatDiv.scrollTop = chatDiv.scrollHeight;
+    chat.scrollTop = chat.scrollHeight;
   });
-}
 
-/* 🔥 AUTO RECEIVE SYSTEM */
-function startAutoListener() {
-  db.collection("messages")
-  .orderBy("time")
-  .onSnapshot(snapshot => {
-
-    snapshot.docChanges().forEach(change => {
-      if (change.type === "added") {
-        let m = change.doc.data();
-
-        if (m.to === currentUser) {
-
-          // 👉 auto open chat
-          if (selectedUser !== m.from) {
-            selectedUser = m.from;
-            document.getElementById("chatHeader").innerText = "Chat with " + selectedUser;
-
-            if (unsubscribeChat) unsubscribeChat();
-            loadMessages();
-          }
-
-          document.getElementById("msgSound").play();
-        }
-      }
+  // typing
+  document.getElementById("msg").addEventListener("input", () => {
+    db.collection("typing").doc(currentUser).set({
+      to: selectedUser,
+      typing: true
     });
 
+    setTimeout(() => {
+      db.collection("typing").doc(currentUser).set({
+        to: selectedUser,
+        typing: false
+      });
+    }, 1000);
   });
+
+  db.collection("typing").onSnapshot(snap => {
+    snap.forEach(doc => {
+      let t = doc.data();
+
+      if (doc.id === selectedUser && t.to === currentUser && t.typing) {
+        document.getElementById("typing").innerText = "Typing...";
+      } else {
+        document.getElementById("typing").innerText = "";
+      }
+    });
+  });
+
 }
 </script>
 
