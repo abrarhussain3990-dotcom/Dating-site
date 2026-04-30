@@ -1,7 +1,10 @@
-<!DOCTYPE html><html>
+<!DOCTYPE html>
+<html>
 <head>
   <title>💖 Dating App PRO MAX UPGRADED</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">  <style>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <style>
     body { font-family: Arial; margin: 0; background: #ece5dd; transition:0.3s; }
     .dark { background: #1e1e1e; color: white; }
 
@@ -39,27 +42,44 @@
     #typing { font-size:12px; color:gray; padding-left:10px; }
 
     .imgMsg { max-width:160px; border-radius:10px; margin-top:5px; }
-  </style></head><body><header>
+  </style>
+</head>
+
+<body>
+
+<header>
 💖 Dating App PRO MAX 🚀
 <button onclick="toggleDark()">🌙</button>
-</header><div class="top">
+</header>
+
+<div class="top">
   <input id="name" placeholder="Enter name">
   <input id="photo" placeholder="Profile Image URL">
   <button onclick="addUser()">Enter</button>
-</div><div class="container">
-  <div id="usersPanel"></div>  <div id="chatPanel">
-    <div id="chatHeader">Chat Ready</div>
-    <div id="typing"></div>
-    <div id="chat"></div><div id="inputArea">
-  <input id="msg" placeholder="Message">
-  <input id="img" placeholder="Image URL">
-  <button onclick="sendMsg()">Send</button>
 </div>
 
-  </div>
-</div><audio id="msgSound" src="https://www.soundjay.com/buttons/sounds/button-3.mp3"></audio>
+<div class="container">
+  <div id="usersPanel"></div>
 
-<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script><script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script><script>
+  <div id="chatPanel">
+    <div id="chatHeader">Chat Ready</div>
+    <div id="typing"></div>
+    <div id="chat"></div>
+
+    <div id="inputArea">
+      <input id="msg" placeholder="Message">
+      <input id="img" placeholder="Image URL">
+      <button onclick="sendMsg()">Send</button>
+    </div>
+  </div>
+</div>
+
+<audio id="msgSound" src="https://www.soundjay.com/buttons/sounds/button-3.mp3"></audio>
+
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+
+<script>
 const firebaseConfig = {
   apiKey: "AIzaSy...",
   authDomain: "lovedatingapp-70584.firebaseapp.com",
@@ -73,7 +93,9 @@ let currentUser = "";
 let selectedUser = null;
 let myPhoto = "";
 
-function toggleDark(){ document.body.classList.toggle("dark"); }
+function toggleDark(){
+  document.body.classList.toggle("dark");
+}
 
 /* ADD USER */
 function addUser(){
@@ -109,13 +131,21 @@ db.collection("users").onSnapshot(snap => {
   });
 });
 
+/* OPEN CHAT */
 function openChat(user){
   selectedUser = user;
   document.getElementById("chatHeader").innerText = "Chat with " + user;
+  document.getElementById("typing").innerText = "";
 }
 
 /* SEND MESSAGE */
 function sendMsg(){
+
+  if(!selectedUser){
+    alert("Select a user first!");
+    return;
+  }
+
   let msg = document.getElementById("msg").value;
   let img = document.getElementById("img").value;
 
@@ -132,6 +162,7 @@ function sendMsg(){
   document.getElementById("img").value = "";
 }
 
+/* LISTENERS */
 function startListeners(){
 
   db.collection("messages").orderBy("time").onSnapshot(snap => {
@@ -141,6 +172,15 @@ function startListeners(){
 
     snap.forEach(doc => {
       let m = doc.data();
+
+      // 🔥 AUTO OPEN CHAT (MAIN UPGRADE)
+      if(!selectedUser && m.from !== currentUser){
+        openChat(m.from);
+      }
+
+      if(selectedUser && m.to === currentUser && m.from !== currentUser && selectedUser !== m.from){
+        openChat(m.from);
+      }
 
       if((m.from===currentUser && m.to===selectedUser) || (m.from===selectedUser && m.to===currentUser)){
 
@@ -168,9 +208,18 @@ function startListeners(){
 
   /* typing */
   document.getElementById("msg").addEventListener("input",()=>{
-    db.collection("typing").doc(currentUser).set({to:selectedUser,typing:true});
+    if(!selectedUser) return;
+
+    db.collection("typing").doc(currentUser).set({
+      to:selectedUser,
+      typing:true
+    });
+
     setTimeout(()=>{
-      db.collection("typing").doc(currentUser).set({to:selectedUser,typing:false});
+      db.collection("typing").doc(currentUser).set({
+        to:selectedUser,
+        typing:false
+      });
     },800);
   });
 
@@ -185,5 +234,7 @@ function startListeners(){
     });
   });
 }
-</script></body>
+</script>
+
+</body>
 </html>
