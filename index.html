@@ -56,31 +56,12 @@
 
     #chatPanel { width: 65%; display: flex; flex-direction: column; }
 
-    #chat {
-      flex: 1;
-      overflow-y: auto;
-      padding: 10px;
-      display: flex;
-      flex-direction: column;
-    }
+    #chat { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; }
 
-    .msg {
-      padding: 10px;
-      margin: 5px;
-      border-radius: 12px;
-      max-width: 70%;
-    }
+    .msg { padding: 10px; margin: 5px; border-radius: 12px; max-width: 70%; }
 
-    .me {
-      background: #ff4d6d;
-      color: white;
-      align-self: flex-end;
-    }
-
-    .other {
-      background: #fff;
-      align-self: flex-start;
-    }
+    .me { background: #ff4d6d; color: white; align-self: flex-end; }
+    .other { background: #fff; align-self: flex-start; }
 
     .dark .other { background: #444; color: white; }
 
@@ -90,17 +71,9 @@
       margin-top: 5px;
     }
 
-    #inputArea {
-      display: flex;
-      padding: 10px;
-      gap: 5px;
-    }
+    #inputArea { display: flex; padding: 10px; gap: 5px; }
 
-    input {
-      padding: 10px;
-      border-radius: 20px;
-      border: 1px solid #ccc;
-    }
+    input { padding: 10px; border-radius: 20px; border: 1px solid #ccc; }
 
     button {
       padding: 10px;
@@ -130,11 +103,11 @@
   <div id="usersPanel"></div>
 
   <div id="chatPanel">
-    <div id="chatHeader">💬 Direct Chat System Active</div>
+    <div id="chatHeader">Select user or send directly</div>
     <div id="chat"></div>
 
     <div id="inputArea">
-      <input id="msg" placeholder="Message (Enter name will be asked)" onkeypress="handleEnter(event)">
+      <input id="msg" placeholder="Message" onkeypress="handleEnter(event)">
       <input id="imgUrl" placeholder="Image URL">
       <button onclick="sendMsg()">Send</button>
       <button onclick="sendImageURL()">Img</button>
@@ -158,6 +131,8 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
 let currentUser = "";
+let selectedUser = null;
+let lastSender = "";
 
 /* DARK MODE */
 function toggleDark() {
@@ -193,7 +168,7 @@ db.collection("users").onSnapshot(snapshot => {
     if (u.name === currentUser) return;
 
     div.innerHTML += `
-      <div>
+      <div onclick="openChat('${u.name}')">
         <img src="${u.photo}">
         <div><b>${u.name}</b></div>
       </div>
@@ -201,12 +176,19 @@ db.collection("users").onSnapshot(snapshot => {
   });
 });
 
-/* SEND MESSAGE (DIRECT NO SELECT) */
+/* OPEN CHAT */
+function openChat(user) {
+  selectedUser = user;
+  document.getElementById("chatHeader").innerText = "Chat with " + user;
+  loadMessages(); // 🔥 important
+}
+
+/* SEND MESSAGE */
 function sendMsg() {
   let msg = document.getElementById("msg").value.trim();
   if (!msg) return;
 
-  let to = prompt("Enter receiver name:");
+  let to = selectedUser || prompt("Enter receiver name:");
   if (!to) return;
 
   db.collection("messages").add({
@@ -223,9 +205,9 @@ function sendMsg() {
 /* SEND IMAGE */
 function sendImageURL() {
   let url = document.getElementById("imgUrl").value.trim();
-  if (!url.startsWith("http")) return alert("Valid URL required");
+  if (!url.startsWith("http")) return;
 
-  let to = prompt("Enter receiver name:");
+  let to = selectedUser || prompt("Enter receiver name:");
   if (!to) return;
 
   db.collection("messages").add({
@@ -244,31 +226,47 @@ function handleEnter(e) {
   if (e.key === "Enter") sendMsg();
 }
 
-/* LOAD CHAT (REAL FIXED DELIVERY SYSTEM) */
-db.collection("messages")
-.orderBy("time")
-.onSnapshot(snapshot => {
+/* 🔥 NEW LOAD CHAT SYSTEM (FIXED) */
+function loadMessages() {
 
-  let chatDiv = document.getElementById("chat");
-  chatDiv.innerHTML = "";
+  db.collection("messages")
+  .orderBy("time")
+  .onSnapshot(snapshot => {
 
-  snapshot.forEach(doc => {
-    let m = doc.data();
+    let chatDiv = document.getElementById("chat");
+    chatDiv.innerHTML = "";
+    lastSender = "";
 
-    if (m.from === currentUser || m.to === currentUser) {
+    snapshot.forEach(doc => {
+      let m = doc.data();
 
-      let cls = m.from === currentUser ? "me" : "other";
+      if (
+        (m.from === currentUser && m.to === selectedUser) ||
+        (m.from === selectedUser && m.to === currentUser)
+      ) {
 
-      let content = m.type === "text"
-        ? `<b>${m.from}:</b> ${m.text}`
-        : `<b>${m.from}:</b><br><img src="${m.img}" class="chat-img">`;
+        let cls = m.from === currentUser ? "me" : "other";
 
-      chatDiv.innerHTML += `<div class="msg ${cls}">${content}</div>`;
-    }
+        let content = m.type === "text"
+          ? m.text
+          : `<img src="${m.img}" class="chat-img">`;
+
+        let nameTag = "";
+        if (lastSender !== m.from) {
+          nameTag = `<div style="font-size:11px;color:gray">${m.from}</div>`;
+          lastSender = m.from;
+        }
+
+        chatDiv.innerHTML += `
+          ${nameTag}
+          <div class="msg ${cls}">${content}</div>
+        `;
+      }
+    });
+
+    chatDiv.scrollTop = chatDiv.scrollHeight;
   });
-
-  chatDiv.scrollTop = chatDiv.scrollHeight;
-});
+}
 </script>
 
 </body>
