@@ -1,10 +1,7 @@
-<!DOCTYPE html>
-<html>
+<!DOCTYPE html><html>
 <head>
-  <title>💖 Dating App PRO MAX UPGRADED</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-  <style>
+  <title>💖 Dating App PRO MAX UPGRADED v2</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">  <style>
     body { font-family: Arial; margin: 0; background: #ece5dd; transition:0.3s; }
     .dark { background: #1e1e1e; color: white; }
 
@@ -13,10 +10,13 @@
       color: white;
       padding: 15px;
       text-align: center;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
     }
 
     .top { display:flex; gap:6px; padding:10px; background:#fff; flex-wrap:wrap; }
-    .container { display:flex; height: calc(100vh - 120px); }
+    .container { display:flex; height: calc(100vh - 140px); }
 
     #usersPanel { width:35%; background:#fff; overflow-y:auto; }
     #chatPanel { width:65%; display:flex; flex-direction:column; }
@@ -32,54 +32,39 @@
     #inputArea { display:flex; gap:5px; padding:10px; }
     input, button { padding:10px; border-radius:20px; border:1px solid #ccc; }
 
-    .user { padding:10px; cursor:pointer; border-bottom:1px solid #eee; }
+    .user { padding:10px; cursor:pointer; border-bottom:1px solid #eee; display:flex; align-items:center; gap:8px; }
     .user:hover { background:#f0f0f0; }
 
-    .profilePic { width:30px; height:30px; border-radius:50%; object-fit:cover; margin-right:5px; }
+    .profilePic { width:35px; height:35px; border-radius:50%; object-fit:cover; }
 
-    .onlineDot { color:green; }
+    .onlineDot { margin-left:auto; font-size:14px; }
 
     #typing { font-size:12px; color:gray; padding-left:10px; }
 
     .imgMsg { max-width:160px; border-radius:10px; margin-top:5px; }
-  </style>
-</head>
 
-<body>
-
-<header>
-💖 Dating App PRO MAX 🚀
-<button onclick="toggleDark()">🌙</button>
-</header>
-
-<div class="top">
+    .actions { font-size:12px; cursor:pointer; margin-top:3px; opacity:0.7; }
+  </style></head><body><header>
+  💖 Dating App PRO MAX 🚀 v2
+  <button onclick="toggleDark()">🌙</button>
+</header><div class="top">
   <input id="name" placeholder="Enter name">
   <input id="photo" placeholder="Profile Image URL">
   <button onclick="addUser()">Enter</button>
-</div>
-
-<div class="container">
-  <div id="usersPanel"></div>
-
-  <div id="chatPanel">
+</div><div class="container">
+  <div id="usersPanel"></div>  <div id="chatPanel">
     <div id="chatHeader">Chat Ready</div>
     <div id="typing"></div>
-    <div id="chat"></div>
-
-    <div id="inputArea">
-      <input id="msg" placeholder="Message">
-      <input id="img" placeholder="Image URL">
-      <button onclick="sendMsg()">Send</button>
-    </div>
-  </div>
+    <div id="chat"></div><div id="inputArea">
+  <input id="msg" placeholder="Message">
+  <input id="img" placeholder="Image URL">
+  <button onclick="sendMsg()">Send</button>
 </div>
 
-<audio id="msgSound" src="https://www.soundjay.com/buttons/sounds/button-3.mp3"></audio>
+  </div>
+</div><audio id="msgSound" src="https://www.soundjay.com/buttons/sounds/button-3.mp3"></audio>
 
-<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
-
-<script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script><script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script><script>
 const firebaseConfig = {
   apiKey: "AIzaSy...",
   authDomain: "lovedatingapp-70584.firebaseapp.com",
@@ -97,7 +82,6 @@ function toggleDark(){
   document.body.classList.toggle("dark");
 }
 
-/* ADD USER */
 function addUser(){
   currentUser = document.getElementById("name").value;
   myPhoto = document.getElementById("photo").value;
@@ -111,7 +95,7 @@ function addUser(){
   startListeners();
 }
 
-/* USERS LIST */
+/* USERS */
 db.collection("users").onSnapshot(snap => {
   let div = document.getElementById("usersPanel");
   div.innerHTML = "";
@@ -131,20 +115,15 @@ db.collection("users").onSnapshot(snap => {
   });
 });
 
-/* OPEN CHAT */
 function openChat(user){
   selectedUser = user;
   document.getElementById("chatHeader").innerText = "Chat with " + user;
   document.getElementById("typing").innerText = "";
 }
 
-/* SEND MESSAGE */
+/* SEND */
 function sendMsg(){
-
-  if(!selectedUser){
-    alert("Select a user first!");
-    return;
-  }
+  if(!selectedUser) return alert("Select user!");
 
   let msg = document.getElementById("msg").value;
   let img = document.getElementById("img").value;
@@ -162,7 +141,12 @@ function sendMsg(){
   document.getElementById("img").value = "";
 }
 
-/* LISTENERS */
+/* DELETE MESSAGE */
+function deleteMsg(id){
+  db.collection("messages").doc(id).delete();
+}
+
+/* LISTEN */
 function startListeners(){
 
   db.collection("messages").orderBy("time").onSnapshot(snap => {
@@ -173,22 +157,11 @@ function startListeners(){
     snap.forEach(doc => {
       let m = doc.data();
 
-      // 🔥 AUTO OPEN CHAT (MAIN UPGRADE)
-      if(!selectedUser && m.from !== currentUser){
-        openChat(m.from);
-      }
-
-      if(selectedUser && m.to === currentUser && m.from !== currentUser && selectedUser !== m.from){
-        openChat(m.from);
-      }
+      if(!selectedUser && m.from !== currentUser) openChat(m.from);
 
       if((m.from===currentUser && m.to===selectedUser) || (m.from===selectedUser && m.to===currentUser)){
 
         let cls = m.from===currentUser ? "me" : "other";
-
-        if(m.to===currentUser && m.status!=="seen"){
-          doc.ref.update({status:"seen"});
-        }
 
         let tick = m.from===currentUser ? (m.status==="seen" ? "✔✔" : "✔") : "";
 
@@ -196,6 +169,9 @@ function startListeners(){
           <div class="msg ${cls}">
             ${m.text || ""}
             ${m.image ? `<br><img class='imgMsg' src='${m.image}'>` : ""}
+
+            <div class="actions" onclick="deleteMsg('${doc.id}')">🗑 Delete</div>
+
             <small>${tick} ${new Date(m.time).toLocaleTimeString()}</small>
           </div>
         `;
@@ -234,7 +210,5 @@ function startListeners(){
     });
   });
 }
-</script>
-
-</body>
+</script></body>
 </html>
