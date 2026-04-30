@@ -103,7 +103,7 @@
   <div id="usersPanel"></div>
 
   <div id="chatPanel">
-    <div id="chatHeader">Select user or send directly</div>
+    <div id="chatHeader">Auto Chat System Ready</div>
     <div id="chat"></div>
 
     <div id="inputArea">
@@ -133,6 +133,7 @@ const db = firebase.firestore();
 let currentUser = "";
 let selectedUser = null;
 let lastSender = "";
+let unsubscribeChat = null;
 
 /* DARK MODE */
 function toggleDark() {
@@ -156,6 +157,8 @@ function addUser() {
   }, { merge: true });
 
   document.getElementById("name").disabled = true;
+
+  startAutoListener(); // 🔥 auto receive start
 }
 
 /* USERS LIST */
@@ -180,7 +183,9 @@ db.collection("users").onSnapshot(snapshot => {
 function openChat(user) {
   selectedUser = user;
   document.getElementById("chatHeader").innerText = "Chat with " + user;
-  loadMessages(); // 🔥 important
+
+  if (unsubscribeChat) unsubscribeChat();
+  loadMessages();
 }
 
 /* SEND MESSAGE */
@@ -226,10 +231,10 @@ function handleEnter(e) {
   if (e.key === "Enter") sendMsg();
 }
 
-/* 🔥 NEW LOAD CHAT SYSTEM (FIXED) */
+/* LOAD CHAT */
 function loadMessages() {
 
-  db.collection("messages")
+  unsubscribeChat = db.collection("messages")
   .orderBy("time")
   .onSnapshot(snapshot => {
 
@@ -265,6 +270,35 @@ function loadMessages() {
     });
 
     chatDiv.scrollTop = chatDiv.scrollHeight;
+  });
+}
+
+/* 🔥 AUTO RECEIVE SYSTEM */
+function startAutoListener() {
+  db.collection("messages")
+  .orderBy("time")
+  .onSnapshot(snapshot => {
+
+    snapshot.docChanges().forEach(change => {
+      if (change.type === "added") {
+        let m = change.doc.data();
+
+        if (m.to === currentUser) {
+
+          // 👉 auto open chat
+          if (selectedUser !== m.from) {
+            selectedUser = m.from;
+            document.getElementById("chatHeader").innerText = "Chat with " + selectedUser;
+
+            if (unsubscribeChat) unsubscribeChat();
+            loadMessages();
+          }
+
+          document.getElementById("msgSound").play();
+        }
+      }
+    });
+
   });
 }
 </script>
